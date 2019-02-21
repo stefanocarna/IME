@@ -117,6 +117,7 @@ busy:
 static void disable_on_apic(void)
 {
 	preempt_disable();
+	wrmsrl(MSR_IA32_PERFEVTSEL0, 0ULL);
 	apic_write(APIC_LVTPC, __this_cpu_read(lvtpc_bkp));
 	
 	pr_info("[CPU %u] Restored PMU state\n", smp_processor_id());
@@ -233,7 +234,7 @@ int enabledPMU(void *dummy)
 	debugPMU(MSR_IA32_PERF_GLOBAL_CTRL);
 	wrmsrl(MSR_IA32_PMC0, 0ULL);
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(0));
-	wrmsrl(MSR_IA32_PERFEVTSEL0, BIT(22) | BIT(16) | EVT_MEM_LOAD_RETIRED_L3_HIT);
+	wrmsrl(MSR_IA32_PERFEVTSEL0, BIT(22) | BIT(16) | EVT_INSTRUCTIONS_RETIRED);
 	debugPMU(MSR_IA32_PERFEVTSEL0);
 	pr_info("[CPU %u] enabledPMU\n", smp_processor_id());
 	preempt_enable();
