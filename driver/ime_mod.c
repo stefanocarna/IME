@@ -12,17 +12,18 @@ extern long unsigned int system_vectors[];
 
 static __init int hop_init(void)
 {
+	u64 msr;
 	int err = 0;
 	pr_info("Module Init\n");
 	check_for_pebs_support();
-	//if(enable_pebs_on_system()) err = -1;
+	if(enable_pebs_on_system()) err = -1;
 	err = setup_resources();
-	return err;
+	return -1;
 }// hop_init
 
 void __exit hop_exit(void)
 {
-	//disable_pebs_on_system();
+	disable_pebs_on_system();
 	cleanup_resources();
 	cleanup_pmc();
 	pr_info("Module Exit\n");

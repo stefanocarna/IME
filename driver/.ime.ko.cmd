@@ -1,0 +1,1 @@
+cmd_/home/serena/Scrivania/ime_pmc/driver/ime.ko := ld -r -m elf_x86_64  -z max-page-size=0x200000 -T ./scripts/module-common.lds  --build-id  -o /home/serena/Scrivania/ime_pmc/driver/ime.ko /home/serena/Scrivania/ime_pmc/driver/ime.o /home/serena/Scrivania/ime_pmc/driver/ime.mod.o ;  true

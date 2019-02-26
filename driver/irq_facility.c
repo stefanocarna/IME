@@ -22,7 +22,7 @@
 #define IME_DEV_MINOR 0
 #define IME_MODULE_NAME "ime"
 #define IME_DEVICE_NAME	"pmc"
-#define MAX_ID_PMC 7
+#define MAX_ID_PMC 4
 
 int ime_major = 0;
 static spinlock_t list_lock;
@@ -73,6 +73,7 @@ extern void pebs_entry(void);
 
 static int acquire_vector(void)
 {
+	pr_info("Acquire vector\n");
 	// unsigned i = 0;
 	if (valid_vector(irq_vector)) goto taken;
 
@@ -86,8 +87,7 @@ static int acquire_vector(void)
 	while (test_and_set_bit(irq_vector, system_irqs)) {
 		irq_vector ++;
 	}
-	if (!valid_vector(irq_vector)) goto busy;
-	pr_info("Acquired vector: %u\n", irq_vector);	
+	if (!valid_vector(irq_vector)) goto busy;	
 	return 0;
 
 busy:
@@ -118,16 +118,18 @@ wrong:
  */
 static int enable_on_apic(void)
 {
+	pr_info("Enable apic\n");
 	u64 msr;
 	preempt_disable();
 
 	/* Check if someone else is using the PMU */
-	rdmsrl(MSR_IA32_PERFEVTSEL0, msr);
-	if (msr & MASK_PERFEVT_EN) goto busy;
+	//rdmsrl(MSR_IA32_PERFEVTSEL0, msr);
+	//pr_info("PMU%llx: %llx\n", MSR_IA32_PERFEVTSEL0, msr);
+	//if (msr & MASK_PERFEVT_EN) goto busy;
 
 	__this_cpu_write(lvtpc_bkp, apic_read(APIC_LVTPC));
 	apic_write(APIC_LVTPC, irq_vector);
-	
+	pr_info("APIC: irq_vector: %u\n", irq_vector);
 	preempt_enable();	
 	return 0;
 
@@ -141,7 +143,7 @@ busy:
 static void disable_on_apic(void)
 {
 	preempt_disable();
-	wrmsrl(MSR_IA32_PERFEVTSEL0, 0ULL);
+	//wrmsrl(MSR_IA32_PERFEVTSEL0, 0ULL);
 	apic_write(APIC_LVTPC, __this_cpu_read(lvtpc_bkp));
 	
 	pr_info("[CPU %u] Restored PMU state\n", smp_processor_id());
@@ -156,26 +158,26 @@ static void disable_on_apic(void)
  */
 static int setup_idt_entry(void)
 {
-	
+	pr_info("Setup entry\n");
 	struct desc_ptr idtr;
 	gate_desc irq_desc;
 	unsigned long cr0;
-
-	/* read the idtr register */
+	pr_info("SETUP: irq_vector: %u\n", irq_vector);
+	// read the idtr register 
 	store_idt(&idtr);
 
-	/* copy the old entry before overwritting it */
+	// copy the old entry before overwritting it 
 	memcpy(&entry_bkp, (void*)(idtr.address + irq_vector * sizeof(gate_desc)), sizeof(gate_desc));
 	
 	pack_gate(&irq_desc, GATE_INTERRUPT, (unsigned long)pebs_entry, 0, 0, 0);
 	
-	/* the IDT id read only */
+	// the IDT id read only 
 	cr0 = read_cr0();
 	write_cr0(cr0 & ~X86_CR0_WP);
 
 	write_idt_entry((gate_desc*)idtr.address, irq_vector, &irq_desc);
 	
-	/* restore the Write Protection BIT */
+	// restore the Write Protection BIT 
 	write_cr0(cr0);	
 
 	return 0;
@@ -197,9 +199,9 @@ static void restore_idt_entry(void)
 
 void handle_pebs_irq(void)
 {
-	preempt_disable();
-	audit_counter ++;
-	preempt_enable();
+	//preempt_disable();
+	//audit_counter ++;
+	//preempt_enable();
 }// handle_pebs_irq
 
 asm("    .globl pebs_entry\n"
@@ -248,40 +250,18 @@ asm("    .globl pebs_entry\n"
     "2:\n"
     "    iretq");
 
-int enabledPMU(void *dummy)
-{
-	preempt_disable();
-	debugPMU(MSR_IA32_PERF_GLOBAL_CTRL);
-	wrmsrl(MSR_IA32_PMC0, 0ULL);
-	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(0));
-	wrmsrl(MSR_IA32_PERFEVTSEL0, BIT(22) | BIT(16) | EVT_INSTRUCTIONS_RETIRED);
-	debugPMU(MSR_IA32_PERFEVTSEL0);
-	pr_info("[CPU %u] enabledPMU\n", smp_processor_id());
-	preempt_enable();
-	return 0;
-}
-
-int disablePMU(void *dummy)
-{
-	preempt_disable();
-	debugPMU(MSR_IA32_PMC0);
-	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
-	wrmsrl(MSR_IA32_PERFEVTSEL0, 0ULL);
-	pr_info("[CPU %u] disablePMU\n", smp_processor_id());
-	preempt_enable();
-	return 0;
-}
-
 
 int enable_pebs_on_system(void)
 {
+	pr_info("Enable pebs\n");
 	if (acquire_vector()) goto err;
-	if (enable_on_apic()) goto err_apic;
-	if (setup_idt_entry()) goto err_entry;
+	//if (setup_idt_entry()) goto err_entry;
+	//if (enable_on_apic()) goto err_apic;
+	
 	// preempt_disable();
 	// pr_info("[CPU %u] PEBS enabled\n", smp_processor_id());
 	// preempt_enable();
-	smp_call_on_cpu(0, enabledPMU, NULL, 0);
+	//smp_call_on_cpu(0, enabledPMU, NULL, 0);
 	return 0;
 err_apic:
 	release_vector();
@@ -289,15 +269,15 @@ err_entry:
 	disable_on_apic();
 err:
 	return -1;
-}// enable_pebs_on_system
+}// enable_pebs_on_systemz
 
 
 
 void disable_pebs_on_system(void)
 {
-	smp_call_on_cpu(0, disablePMU, NULL, 0);;
-	restore_idt_entry();
-	disable_on_apic();
+	//smp_call_on_cpu(0, disablePMU, NULL, 0);;
+	//disable_on_apic();
+	//restore_idt_entry();
 	release_vector();
 	// preempt_disable();
 	// pr_info("[CPU %u] PEBS disabled\n", smp_processor_id());
@@ -433,13 +413,20 @@ void cleanup_resources(void)
 	cleanup_chdevs_resources();
 }// cleanup_resources
 
-void cleanup_pmc(void){
-	int pmc_id;
+void disableAllPMC(void* arg)
+{
+	int pmc_id; 
 	preempt_disable();
 	for(pmc_id = 0; pmc_id < MAX_ID_PMC; pmc_id++){
 		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
 		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
+		pr_info("[CPU %u] disablePMC%d\n", smp_processor_id(), pmc_id);
 	}
 	preempt_enable();
+}
+
+void cleanup_pmc(void){
+	pr_info("audit_counter: %lu\n", audit_counter);
+	on_each_cpu(disableAllPMC, NULL, 1);
 }
