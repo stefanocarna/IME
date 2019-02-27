@@ -116,19 +116,22 @@ wrong:
  * PEBS works only on PMC0. We need to check that it is not used before enabling the
  * PEBS support in order to avoid conflicts with other softwares.
  */
-static int enable_on_apic(void)
+int enable_on_apic(void)
 {
 	pr_info("Enable apic\n");
 	u64 msr;
 	preempt_disable();
-
+	irq_vector = 20;
 	/* Check if someone else is using the PMU */
 	//rdmsrl(MSR_IA32_PERFEVTSEL0, msr);
 	//pr_info("PMU%llx: %llx\n", MSR_IA32_PERFEVTSEL0, msr);
 	//if (msr & MASK_PERFEVT_EN) goto busy;
-
+	pr_info("APIC LVTPC: %x\n", APIC_LVTPC);
 	__this_cpu_write(lvtpc_bkp, apic_read(APIC_LVTPC));
+	pr_info("APIC original: %u\n", lvtpc_bkp);
 	apic_write(APIC_LVTPC, irq_vector);
+	__this_cpu_write(msr, apic_read(APIC_LVTPC));
+	pr_info("APIC original: %u\n", msr);
 	pr_info("APIC: irq_vector: %u\n", irq_vector);
 	preempt_enable();	
 	return 0;
@@ -140,7 +143,7 @@ busy:
 
 }// setup_apic
 
-static void disable_on_apic(void)
+void disable_on_apic(void)
 {
 	preempt_disable();
 	//wrmsrl(MSR_IA32_PERFEVTSEL0, 0ULL);
@@ -199,9 +202,9 @@ static void restore_idt_entry(void)
 
 void handle_pebs_irq(void)
 {
-	//preempt_disable();
-	//audit_counter ++;
-	//preempt_enable();
+	preempt_disable();
+	audit_counter ++;
+	preempt_enable();
 }// handle_pebs_irq
 
 asm("    .globl pebs_entry\n"
@@ -255,8 +258,8 @@ int enable_pebs_on_system(void)
 {
 	pr_info("Enable pebs\n");
 	if (acquire_vector()) goto err;
-	//if (setup_idt_entry()) goto err_entry;
-	//if (enable_on_apic()) goto err_apic;
+	if (setup_idt_entry()) goto err_entry;
+	if (enable_on_apic()) goto err_apic;
 	
 	// preempt_disable();
 	// pr_info("[CPU %u] PEBS enabled\n", smp_processor_id());
@@ -276,8 +279,8 @@ err:
 void disable_pebs_on_system(void)
 {
 	//smp_call_on_cpu(0, disablePMU, NULL, 0);;
-	//disable_on_apic();
-	//restore_idt_entry();
+	disable_on_apic();
+	restore_idt_entry();
 	release_vector();
 	// preempt_disable();
 	// pr_info("[CPU %u] PEBS disabled\n", smp_processor_id());
@@ -429,4 +432,36 @@ void disableAllPMC(void* arg)
 void cleanup_pmc(void){
 	pr_info("audit_counter: %lu\n", audit_counter);
 	on_each_cpu(disableAllPMC, NULL, 1);
+}
+
+void disablePMC0(void* arg)
+{
+	preempt_disable();
+	//ret = debugPMU(MSR_IA32_PMC(pmc_id));
+	if(smp_processor_id() == 3){
+		int pmc_id = 0;
+		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
+		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
+		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
+		pr_info("[CPU %u] disablePMC%d\n", smp_processor_id(), pmc_id);
+		preempt_enable();
+	}
+}
+
+void enablePMC0(void* arg)
+{
+	if(smp_processor_id() == 3){
+		int pmc_id = 0;
+		u64 msr;
+		preempt_disable();
+		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
+		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(pmc_id));
+		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(20) | BIT(16) | 0xC0);
+		wrmsrl(MSR_IA32_PERF_GLOBAL_OVF_CTRL, 1ULL << 62);
+		wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xffULL));
+		pr_info("[CPU %u] enabledPMC%d\n", smp_processor_id(), pmc_id);
+		rdmsrl(MSR_IA32_PMC(pmc_id), msr);
+		pr_info("PMU%llx: %llx\n", MSR_IA32_PMC(pmc_id) - 0xC1, msr);
+		preempt_enable();
+	}
 }
