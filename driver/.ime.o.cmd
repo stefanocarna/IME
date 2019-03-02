@@ -1,1 +1,0 @@
-cmd_/home/serena/Scrivania/ime_pmc/driver/ime.o := ld -m elf_x86_64  -z max-page-size=0x200000   -r -o /home/serena/Scrivania/ime_pmc/driver/ime.o /home/serena/Scrivania/ime_pmc/driver/ime_mod.o /home/serena/Scrivania/ime_pmc/driver/control.o /home/serena/Scrivania/ime_pmc/driver/irq_facility.o /home/serena/Scrivania/ime_pmc/driver/ime_fops.o 
