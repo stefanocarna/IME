@@ -20,6 +20,10 @@
 #include "ime_fops.h"
 #include "ime_handler.h"
 
+#define MSR_IBS_CONTROL					0xc001103a
+#define 	IBS_LVT_OFFSET_VAL				(1ULL<<8)	
+#define 	IBS_LVT_OFFSET					0xfULL 	
+
 unsigned ime_vector = 0xffU;
 
 static void debugPMU(u64 pmu)
@@ -61,17 +65,25 @@ static void setup_ime_lvt(void *err)
 	 * Non Maskable Interrupt (NMI). This entry should be 
 	 * masked.
 	 */
+	/* Get the IBS_LAPIC offset by IBS_CTL */
+	/*rdmsrl(MSR_IBS_CONTROL, ime_ctl);
+	if (!(ime_ctl & IBS_LVT_OFFSET_VAL)) {
+		pr_err("APIC setup failed: invalid offset by MSR_bits: %llu\n", ime_ctl);
+		goto no_offset;
+	}
+
+	offset = ime_ctl & IBS_LVT_OFFSET;
+	pr_info("IBS_CTL Offset: %u\n", offset);
 
 	reg = APIC_LVTPC;
 	entry = apic_read(reg);
 
 	/* print the apic register : | mask | msg_type | vector | before setup */
-	pr_info("[APIC] CPU %u - READ offset %u -> | %lu | %lu | %lu |\n", 
+	/*pr_info("[APIC] CPU %u - READ offset %u -> | %lu | %lu | %lu |\n", 
 		smp_processor_id(), 
 		offset, ((entry >> 16) & 0xFUL), ((entry >> 8) & 0xFUL), (entry & 0xFFUL));
 
 	// if different, clear
-
 
 	// This is the entry we want to install, ime_irq_line has been got in the step before
 	new_entry = (0UL) | (APIC_EILVT_MSG_NMI << 8) | (0);
@@ -93,7 +105,17 @@ static void setup_ime_lvt(void *err)
 			offset, smp_processor_id());
 	else{
 		goto fail;
+	}*/
+
+	preempt_disable();
+	for (offset = 0; offset < APIC_EILVT_NR_MAX; offset++) {
+		if (setup_APIC_eilvt(offset, 0, APIC_EILVT_MSG_NMI, 0)) {
+			pr_info("LVT entry #%i setup on cpu:%i\n", 
+			offset, smp_processor_id());
+			break;
+		}
 	}
+	preempt_enable();
 	return;
 
 fail:
