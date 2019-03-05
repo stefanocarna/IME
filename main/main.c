@@ -36,6 +36,7 @@ int ioctl_cmd(int fd)
 	printf("%d: set IME_PROFILER_ON\n", _IOC_NR(IME_PROFILER_ON));
 	printf("%d: set IME_PROFILER_OFF\n", _IOC_NR(IME_PROFILER_OFF));
 	printf("%d: set IME_PMC_STATS\n", _IOC_NR(IME_PMC_STATS));
+	printf("%d: set IME_PMC_BUFFER\n", _IOC_NR(IME_PMC_BUFFER));
 
 	printf("Put cmd >> ");
 	int cmd = int_from_stdin();
@@ -54,6 +55,11 @@ int ioctl_cmd(int fd)
 		printf("%d: EVT_MEM_LOAD_RETIRED_L3_HIT\n", EVT_MEM_LOAD_RETIRED_L3_HIT);
 		return err;
 	}
+
+	if(cmd == IME_PMC_BUFFER){
+
+	}
+
 	printf("Insert PMC id >> ");
 	int pmc_id = int_from_stdin();
 	if(cmd == _IOC_NR(IME_PROFILER_ON) || cmd == _IOC_NR(IME_PROFILER_OFF)){
@@ -111,7 +117,7 @@ const char * device = "/dev/ime/pmc";
 
 int main (int argc, char* argv[])
 {
-
+	int err;
 	int fd = open(device, 0666);
 
 	if (fd < 0) {
@@ -119,7 +125,7 @@ int main (int argc, char* argv[])
 		return -1;
 	}
 
-	printf("What do you wanna do?\n");
+	/*printf("What do you wanna do?\n");
 	printf("0) EXIT\n");
 	printf("1) IOCTL\n");
 
@@ -139,8 +145,53 @@ int main (int argc, char* argv[])
 		printf("0) EXIT\n");
 		printf("1) IOCTL\n");
 		cmd = int_from_stdin();
+	}*/
+
+	struct sampling_spec* output = (struct sampling_spec*) malloc (sizeof(struct sampling_spec));
+	output->pmc_id = 0;
+	output->event_id = 1;
+	
+	if ((err = ioctl(fd, IME_PROFILER_ON, output)) < 0){
+		printf("IOCTL: IME_PROFILER_ON failed\n");
+		return err;
+	}
+	printf("IOCTL: IME_PROFILER_ON success\n");
+	
+	unsigned long n = 0, temp;
+	printf("int: %ld\n", n);
+	while(n < 30000000){
+		temp = n;
+		n = n*2;
+		n = n+3;
+		if(n > 3000){
+			//printf("int: %ld\n", n);
+		}
+		n = temp;
+		//Sleep(3);
+		//printf("int: %d\n", n);
+		n++;
 	}
 
-    close(fd);
+	int i;
+	struct pmc_stats* args = (struct pmc_stats*) malloc (sizeof(struct pmc_stats));
+	args->pmc_id = 0;
+
+	if ((err = ioctl(fd, IME_PMC_STATS, args)) < 0){
+		printf("IOCTL: IME_PMC_STATS failed\n");
+		return err;
+	}
+	printf("IOCTL: IME_PMC_STATS success -- PMC%d\n", args->pmc_id);
+	
+	for(i = 0; i < numCPU; i++){
+		printf("The resulting value of PMC%d on CPU%d is: %lx\n",args->pmc_id, i, args->percpu_value[i]);
+	}
+
+	if ((err = ioctl(fd, IME_PROFILER_OFF, output)) < 0){
+		printf("IOCTL: IME_PROFILER_OFF failed\n");
+		return err;
+	}
+	printf("IOCTL: IME_PROFILER_OFF success\n");
+
+  	close(fd);
 	return 0;
 }// main

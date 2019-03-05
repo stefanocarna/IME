@@ -16,6 +16,7 @@ struct sampling_spec {
     int event_id;
 };
 
+
 /* Use 'j' as magic number */
 #define IME_IOC_MAGIC			'q'
 
@@ -24,5 +25,6 @@ struct sampling_spec {
 #define IME_PROFILER_ON						_IO(IME_IOC_MAGIC, _IO_NB)
 #define IME_PROFILER_OFF					_IO(IME_IOC_MAGIC, _IO_NB+1)
 #define IME_PMC_STATS						_IO(IME_IOC_MAGIC, _IO_NB+2)
+#define IME_PMC_BUFFER                      _IO(IME_IOC_MAGIC, _IO_NB+3)
 
 #endif /* _IME_IOCTL_H_ */

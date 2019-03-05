@@ -2,9 +2,10 @@
 #define NMI_NAME	"ime"
 #define MAX_ID_PMC 3
 
-int enable_pebs_on_system(void);
 
-void disable_pebs_on_system(void);
+int enable_nmi(void);
+
+void disable_nmi(void);
 
 void cleanup_pmc(void);
 

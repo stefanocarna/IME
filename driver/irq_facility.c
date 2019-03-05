@@ -53,76 +53,8 @@ extern void pebs_entry(void);
 
 static void setup_ime_lvt(void *err)
 {
-	u64 reg;
-	u64 ime_ctl;
-	u32 entry;
-	u32 new_entry;
-	u8 offset;
-
-	/*
-	 * The LAPIC entry is set by the BIOS and reserves the 
-	 * offset specified by the IBS_CTL register for 
-	 * Non Maskable Interrupt (NMI). This entry should be 
-	 * masked.
-	 */
-	/* Get the IBS_LAPIC offset by IBS_CTL */
-	/*rdmsrl(MSR_IBS_CONTROL, ime_ctl);
-	if (!(ime_ctl & IBS_LVT_OFFSET_VAL)) {
-		pr_err("APIC setup failed: invalid offset by MSR_bits: %llu\n", ime_ctl);
-		goto no_offset;
-	}
-
-	offset = ime_ctl & IBS_LVT_OFFSET;
-	pr_info("IBS_CTL Offset: %u\n", offset);
-
-	reg = APIC_LVTPC;
-	entry = apic_read(reg);
-
-	/* print the apic register : | mask | msg_type | vector | before setup */
-	/*pr_info("[APIC] CPU %u - READ offset %u -> | %lu | %lu | %lu |\n", 
-		smp_processor_id(), 
-		offset, ((entry >> 16) & 0xFUL), ((entry >> 8) & 0xFUL), (entry & 0xFFUL));
-
-	// if different, clear
-
-	// This is the entry we want to install, ime_irq_line has been got in the step before
-	new_entry = (0UL) | (APIC_EILVT_MSG_NMI << 8) | (0);
-
-	// If not masked, remove it
-	if (entry != new_entry || !((entry >> 16) & 0xFUL) ) {
-		if (!setup_APIC_eilvt(offset, 0, 0, 1)) {
-			pr_info("Cleared LVT entry #%i on cpu:%i\n", 
-				offset, smp_processor_id());
-			reg = APIC_EILVTn(offset);
-			entry = apic_read(reg);
-		} else {
-			goto fail;
-		}
-	}
-
-	if (!setup_APIC_eilvt(offset, 0, APIC_EILVT_MSG_NMI, 0))
-		pr_info("LVT entry #%i setup on cpu:%i\n", 
-			offset, smp_processor_id());
-	else{
-		goto fail;
-	}*/
-
-	preempt_disable();
-	for (offset = 0; offset < APIC_EILVT_NR_MAX; offset++) {
-		if (setup_APIC_eilvt(offset, 0, APIC_EILVT_MSG_NMI, 0)) {
-			pr_info("LVT entry #%i setup on cpu:%i\n", 
-			offset, smp_processor_id());
-			break;
-		}
-	}
-	preempt_enable();
+	apic_write(APIC_LVTPC, BIT(10));
 	return;
-
-fail:
-	pr_err("APIC setup failed: cannot set up the LVT entry \
-		#%u on CPU: %u\n", offset, smp_processor_id());
-no_offset:
-	*(int*)err = -1;
 } // setup_ime_lvt
 
 int setup_ime_nmi(int (*handler) (unsigned int, struct pt_regs*))
@@ -150,7 +82,7 @@ void cleanup_ime_nmi(void)
 }// cleanup_ime_nmi
 
 
-int enable_pebs_on_system(void)
+int enable_nmi(void)
 {
 	pr_info("Enable pebs\n");
 	setup_ime_nmi(handle_ime_nmi);
@@ -159,7 +91,7 @@ int enable_pebs_on_system(void)
 
 
 
-void disable_pebs_on_system(void)
+void disable_nmi(void)
 {
 	cleanup_ime_nmi();
 }// disable_pebs_on_system
@@ -215,3 +147,4 @@ void enablePMC0(void* arg)
 		preempt_enable();
 	}
 }
+
