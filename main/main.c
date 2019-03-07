@@ -149,7 +149,7 @@ int main (int argc, char* argv[])
 
 	struct sampling_spec* output = (struct sampling_spec*) malloc (sizeof(struct sampling_spec));
 	output->pmc_id = 0;
-	output->event_id = 1;
+	output->event_id = 0;
 	
 	if ((err = ioctl(fd, IME_PROFILER_ON, output)) < 0){
 		printf("IOCTL: IME_PROFILER_ON failed\n");

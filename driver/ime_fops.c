@@ -19,6 +19,7 @@
 #include "msr_config.h"
 #include "intel_pmc_events.h"
 #include "ime_handler.h"
+#include "irq_facility.h"
 
 DECLARE_BITMAP(pmc_bitmap, sizeof(MAX_PMC));
 
@@ -47,17 +48,19 @@ void debugPMU(void* arg)
 	args->percpu_value[cpu] = msr;
 	//wrmsrl(pmu, ~(0xffULL));
 	preempt_enable();
+
 }
 
 void disablePMC(void* arg)
 {
 	struct sampling_spec* args = (struct sampling_spec*) arg;
 	int pmc_id = args->pmc_id; 
+	//print_reg();
 	preempt_disable();
 	//ret = debugPMU(MSR_IA32_PMC(pmc_id));
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
-	wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
+	//wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
 	pr_info("[CPU %u] disablePMC%d\n", smp_processor_id(), pmc_id);
 	preempt_enable();
 }
@@ -68,11 +71,10 @@ void enabledPMC(void* arg)
 	int pmc_id = args->pmc_id; 
 	u64 event = user_events[args->event_id];
 	preempt_disable();
-	wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
+	wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xfffffULL));
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(pmc_id));
-	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(20) | BIT(16) | BIT(17) | event);
-	wrmsrl(MSR_IA32_PERF_GLOBAL_OVF_CTRL, 1ULL << 62);
-	wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xffULL));
+	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(20) | BIT(17) | BIT(16) | event);
+	//wrmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, 1ULL << 62);
 	pr_info("[CPU %u] enabledPMC%d\n", smp_processor_id(), pmc_id);
 	preempt_enable();
 }

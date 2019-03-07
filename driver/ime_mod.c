@@ -15,18 +15,14 @@ extern long unsigned int system_vectors[];
 
 static __init int hop_init(void)
 {
+	pr_info("Init\n");
 	int err = 0;
-	u64 msr;
-	pr_info("Module Init\n");
-	rdmsrl(MSR_IA32_MISC_ENABLE, msr);
-	//Performance Monitoring Available
-	pr_info("MSR_IA32_MISC_ENABLE[7]: %llx\n", msr & BIT(7));
-	//Processor Event Based Sampling Unavailable
-	pr_info("MSR_IA32_MISC_ENABLE[12]: %llx\n", msr & BIT(12));
+	print_reg();
 	//check_for_pebs_support();
-	on_each_cpu(pebs_init, NULL, 0);
-	setup_resources();
 	enable_nmi();
+	setup_resources();
+	init_pebs_struct();
+	on_each_cpu(pebs_init, NULL, 1);
 	//on_each_cpu(enablePMC0, NULL, 1);
 	//enable_on_apic();
 	return 0;
@@ -34,9 +30,12 @@ static __init int hop_init(void)
 
 void __exit hop_exit(void)
 {
-	disable_nmi();
+	pr_info("Exit\n");
+	print_reg();
+	on_each_cpu(pebs_exit, NULL, 1);
+	exit_pebs_struct();
 	cleanup_resources();
-	on_each_cpu(pebs_exit, NULL, 0);
+	disable_nmi();
 	//cleanup_pmc();
 	//on_each_cpu(disablePMC0, NULL, 1);
 	//disable_on_apic();
@@ -48,4 +47,4 @@ module_init(hop_init);
 module_exit(hop_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Stefano Carna'");
+MODULE_AUTHOR("Serena Ferracci");

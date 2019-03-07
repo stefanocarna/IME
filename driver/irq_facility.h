@@ -9,10 +9,8 @@ void disable_nmi(void);
 
 void cleanup_pmc(void);
 
-void disablePMC0(void* arg);
-
-void enablePMC0(void* arg);
-
 int enable_on_apic(void);
 
 void disable_on_apic(void);
+
+void print_reg(void);

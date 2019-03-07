@@ -84,7 +84,6 @@ void cleanup_ime_nmi(void)
 
 int enable_nmi(void)
 {
-	pr_info("Enable pebs\n");
 	setup_ime_nmi(handle_ime_nmi);
 	return 0;
 }// enable_pebs_on_systemz
@@ -105,7 +104,7 @@ void disableAllPMC(void* arg)
 	for(pmc_id = 0; pmc_id < MAX_ID_PMC; pmc_id++){
 		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
-		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
+		//wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
 		pr_info("[CPU %u] disablePMC%d\n", smp_processor_id(), pmc_id);
 	}
 	preempt_enable();
@@ -116,35 +115,28 @@ void cleanup_pmc(void){
 	on_each_cpu(disableAllPMC, NULL, 1);
 }
 
-void disablePMC0(void* arg)
-{
-	preempt_disable();
-	//ret = debugPMU(MSR_IA32_PMC(pmc_id));
-	if(smp_processor_id() == 3){
-		int pmc_id = 0;
-		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
-		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
-		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
-		pr_info("[CPU %u] disablePMC%d\n", smp_processor_id(), pmc_id);
-		preempt_enable();
-	}
-}
 
-void enablePMC0(void* arg)
-{
-	if(smp_processor_id() == 3){
-		int pmc_id = 0;
-		u64 msr;
-		preempt_disable();
-		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
-		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(pmc_id));
-		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(20) | BIT(16) | 0xC0);
-		wrmsrl(MSR_IA32_PERF_GLOBAL_OVF_CTRL, 1ULL << 62);
-		wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xffULL));
-		pr_info("[CPU %u] enabledPMC%d\n", smp_processor_id(), pmc_id);
-		rdmsrl(MSR_IA32_PMC(pmc_id), msr);
-		pr_info("PMU%llx: %llx\n", MSR_IA32_PMC(pmc_id) - 0xC1, msr);
-		preempt_enable();
-	}
-}
+void print_reg(void){
+	u64 msr;
 
+	rdmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, msr);
+	pr_info("[CPU%d] MSR_IA32_PERF_GLOBAL_STATUS_RESET: %llx\n", smp_processor_id(), msr);
+
+	rdmsrl(MSR_IA32_PERF_GLOBAL_STATUS, msr);
+	pr_info("[CPU%d] MSR_IA32_PERF_GLOBAL_STATUS: %llx\n", smp_processor_id(), msr);
+
+	rdmsrl(MSR_IA32_PERF_GLOBAL_CTRL, msr);
+	pr_info("[CPU%d] MSR_IA32_PERF_GLOBAL_CTRL: %llx\n", smp_processor_id(), msr);
+
+	rdmsrl(MSR_IA32_PEBS_ENABLE, msr);
+	pr_info("[CPU%d] MSR_IA32_PEBS_ENABLE: %llx\n", smp_processor_id(), msr);
+
+	rdmsrl(MSR_IA32_DS_AREA, msr);
+	pr_info("[CPU%d] MSR_IA32_DS_AREA: %llx\n", smp_processor_id(), msr);
+
+	rdmsrl(MSR_IA32_PERFEVTSEL0, msr);
+	pr_info("[CPU%d] MSR_IA32_PERFEVTSEL0: %llx\n", smp_processor_id(), msr);
+
+	rdmsrl(MSR_IA32_PMC0, msr);
+	pr_info("[CPU%d] MSR_IA32_PMC0: %llx\n", smp_processor_id(), msr);
+}
