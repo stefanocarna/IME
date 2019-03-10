@@ -1,29 +1,17 @@
-#include <linux/percpu.h>	/* Macro per_cpu */
 #include <linux/ioctl.h>
-// #include <asm/uaccess.h>
-#include <linux/hashtable.h>
-#include <linux/kernel.h>
-#include <linux/string.h>
-#include <linux/sched.h>	/* task_struct */
-#include <linux/cpu.h>
-#include <asm/cmpxchg.h>
-#include <linux/errno.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/fs.h>
-#include <linux/threads.h>
 #include <asm/smp.h>
 
 #include "ime_fops.h"
 #include "../main/ime-ioctl.h"
 #include "msr_config.h"
 #include "intel_pmc_events.h"
-#include "ime_handler.h"
-#include "irq_facility.h"
+
+extern struct pebs_user buffer_sample[MAX_BUFFER_SIZE];
+extern int user_index_written;
 
 DECLARE_BITMAP(pmc_bitmap, sizeof(MAX_PMC));
-
-extern pmc_sample_t buffer[MAX_SAMPLE];
 
 u64 user_events[MAX_NUM_EVENT] = {
     EVT_INSTRUCTIONS_RETIRED,			
@@ -35,7 +23,6 @@ u64 user_events[MAX_NUM_EVENT] = {
     EVT_MEM_LOAD_RETIRED_L3_HIT			
 };
 
-
 void debugPMU(void* arg)
 {
 	u64 pmu, msr;
@@ -44,24 +31,17 @@ void debugPMU(void* arg)
 	pmu = MSR_IA32_PMC(args->pmc_id);
 	preempt_disable();
 	rdmsrl(pmu, msr);
-	pr_info("PMU%llx on CPU%d: %llx\n", pmu - 0xC1, cpu, msr);
 	args->percpu_value[cpu] = msr;
-	//wrmsrl(pmu, ~(0xffULL));
 	preempt_enable();
-
 }
 
 void disablePMC(void* arg)
 {
 	struct sampling_spec* args = (struct sampling_spec*) arg;
 	int pmc_id = args->pmc_id; 
-	//print_reg();
 	preempt_disable();
-	//ret = debugPMU(MSR_IA32_PMC(pmc_id));
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
-	//wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
-	pr_info("[CPU %u] disablePMC%d\n", smp_processor_id(), pmc_id);
 	preempt_enable();
 }
 
@@ -71,13 +51,12 @@ void enabledPMC(void* arg)
 	int pmc_id = args->pmc_id; 
 	u64 event = user_events[args->event_id];
 	preempt_disable();
-	wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xfffffULL));
+	wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xffffffULL));
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(pmc_id));
-	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(20) | BIT(17) | BIT(16) | event);
-	//wrmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, 1ULL << 62);
-	pr_info("[CPU %u] enabledPMC%d\n", smp_processor_id(), pmc_id);
+	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(17) | BIT(16) | event);
 	preempt_enable();
 }
+
 
 long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -133,5 +112,29 @@ long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		kfree(args);
 		return -1;
     }
+
+	if(cmd == IME_READ_BUFFER){
+		int k;
+		struct buffer_struct* args = (struct buffer_struct*) kzalloc (sizeof(struct buffer_struct), GFP_KERNEL);
+        if (!args) return -ENOMEM;
+		err = access_ok(VERIFY_READ, (void *)arg, sizeof(struct buffer_struct));
+		if(!err) goto out_read;
+		err = copy_from_user(args, (void *)arg, sizeof(struct buffer_struct));
+		if(err) goto out_read;
+		
+		memcpy(&(args->buffer_sample), &(buffer_sample), sizeof(struct pebs_user)*MAX_BUFFER_SIZE);
+		args->last_index = user_index_written;
+		
+		err = access_ok(VERIFY_WRITE, (void *)arg, sizeof(struct buffer_struct));
+		if(!err) goto out_read;
+		err = copy_to_user((void *)arg, args, sizeof(struct buffer_struct));
+		if(err) goto out_read;
+
+		kfree(args);
+		return 0;
+	out_read:
+		kfree(args);
+		return -1;
+	}
 	return err;
 }// ime_ctl_ioctl

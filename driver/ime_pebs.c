@@ -1,26 +1,12 @@
-#include <asm/types.h>
 #include <linux/percpu.h>	/* Macro per_cpu */
-#include <linux/ioctl.h>
-// #include <asm/uaccess.h>
-#include <linux/hashtable.h>
-#include <linux/kernel.h>
-#include <linux/string.h>
-#include <linux/sched.h>	/* task_struct */
-#include <linux/cpu.h>
-#include <asm/cmpxchg.h>
-#include <linux/errno.h>
-#include <linux/uaccess.h>
 #include <linux/slab.h>
-#include <linux/fs.h>
-#include <linux/threads.h>
 #include <asm/smp.h>
 
 #include "msr_config.h" 
 #include "ime_pebs.h"
-#include "irq_facility.h"
+#include "../main/ime-ioctl.h"
 
-#define BUFFER_SIZE		(64 * 1024) /* must be multiple of 4k */
-
+#define PEBS_STRUCT_SIZE	sizeof(pebs_arg_t)
 typedef struct{
 	u64 eflags;	// 0x00
 	u64 eip;	// 0x08
@@ -44,9 +30,11 @@ typedef struct{
 	u64 add;	// 0x98 Data Linear Address
 	u64 enc;	// 0xa0 Data Source Encoding
 	u64 lat;	// 0xa8 Latency value (core cycles)
-				// 0xb0
+	u64 eventing_ip;	//0xb0 EventingIP
+	u64 tsx;	// 0xb8 tx Abort Information
+	u64 tsc;	// 0xc0	TSC
+				// 0xc8
 }pebs_arg_t;
-
 typedef struct{
 	u64 bts_buffer_base;					// 0x00 
 	u64 bts_index;							// 0x08
@@ -63,30 +51,25 @@ typedef struct{
 	u64 reserved;							// 0x60
 }debug_store_t;
 
-
-static int pebs_record_size = sizeof(pebs_arg_t);
-
+int user_index_written = 0;
 debug_store_t* percpu_ds;
-
+struct pebs_user buffer_sample[MAX_BUFFER_SIZE];
 static DEFINE_PER_CPU(unsigned long, percpu_old_ds);
-static DEFINE_PER_CPU(void *, buffer_base);
-static DEFINE_PER_CPU(void *, buffer_index);
-static DEFINE_PER_CPU(void *, buffer_absolute_maximum);
-
+static DEFINE_PER_CPU(pebs_arg_t *, percpu_pebs_last_written);
+spinlock_t lock_buffer;
 
 static int allocate_buffer(void)
 {
 	pebs_arg_t *ppebs;
 	int nRecords = 32;
-	debug_store_t *ds = this_cpu_ptr(percpu_ds);	
-
-	ppebs = (pebs_arg_t *)kzalloc(sizeof(pebs_arg_t)*nRecords, GFP_KERNEL);
+	debug_store_t *ds = this_cpu_ptr(percpu_ds);
+	ppebs = (pebs_arg_t *)kzalloc(PEBS_STRUCT_SIZE*nRecords, GFP_KERNEL);
 	if (!ppebs) {
 		pr_err("Cannot allocate PEBS buffer\n");
 		return -1;
 	}
 
-	//__this_cpu_write(last_read, ppebs);
+	__this_cpu_write(percpu_pebs_last_written, ppebs);
 
 	ds->bts_buffer_base 			= 0;
 	ds->bts_index					= 0;
@@ -94,41 +77,31 @@ static int allocate_buffer(void)
 	ds->bts_interrupt_threshold		= 0;
 	ds->pebs_buffer_base			= ppebs;
 	ds->pebs_index					= ppebs;
-	ds->pebs_absolute_maximum		= ppebs + (nRecords-1) * sizeof(pebs_arg_t);
-	ds->pebs_interrupt_threshold	= ppebs + (nRecords/2) * sizeof(pebs_arg_t);
-	ds->pebs_counter0_reset			= ~(0xfffffULL);
+	ds->pebs_absolute_maximum		= (pebs_arg_t *)((char *)ppebs + (nRecords-1) * PEBS_STRUCT_SIZE);
+	ds->pebs_interrupt_threshold	= (pebs_arg_t *)((char *)ppebs + PEBS_STRUCT_SIZE);
+	ds->pebs_counter0_reset			= ~(0xfffffffULL);
 	ds->reserved					= 0;
-
-	pr_info("Buffer allocated\n");
 	return 0;
 }
 
-//chiamato quando c'è un interrupt
+
 void write_buffer(void){
 	debug_store_t *ds;
 	pebs_arg_t *pebs, *end;
+	unsigned long flags;
 
 	ds = this_cpu_ptr(percpu_ds);
 	pebs = (pebs_arg_t *) ds->pebs_buffer_base;
 	end = (pebs_arg_t *)ds->pebs_index;
-	pr_info("CPU[%d] start: %llx -- end: %llx\n", smp_processor_id(), pebs, end);
-	for (; pebs < end; pebs = (pebs_arg_t *)((char *)pebs + pebs_record_size)) {
-		pr_info("CPU[%d] latency: %llu\n", smp_processor_id(), pebs->lat);
+	for (; pebs < end; pebs = (pebs_arg_t *)((char *)pebs + PEBS_STRUCT_SIZE)) {
+		spin_lock_irqsave(&(lock_buffer), flags);
+		if(user_index_written < MAX_BUFFER_SIZE){
+			memcpy(&(buffer_sample[user_index_written]), pebs, sizeof(struct pebs_user));
+			user_index_written++;
+		}
+		spin_unlock_irqrestore(&(lock_buffer), flags);
 	}
-}
-
-//alloca un buffer più grande per salvare i pebs records e fare spazio nella ds area
-static int allocate_out_buf(void)
-{
-	void *outbu_base = kmalloc(BUFFER_SIZE, GFP_KERNEL);
-	if (!outbu_base) {
-		pr_err("Cannot allocate out buffer\n");
-		return -1;
-	}
-	__this_cpu_write(buffer_base, outbu_base);
-	__this_cpu_write(buffer_index, outbu_base);
-	__this_cpu_write(buffer_absolute_maximum, outbu_base + BUFFER_SIZE);
-	return 0;
+	ds->pebs_index = (pebs_arg_t *) ds->pebs_buffer_base;
 }
 
 int init_pebs_struct(void){
@@ -144,15 +117,12 @@ void exit_pebs_struct(void){
 void pebs_init(void *arg)
 {
 	unsigned long old_ds;
-	//init_pebs_struct();
-	allocate_buffer();
-	//allocate_out_buf(); 
+	allocate_buffer(); 
 
 	rdmsrl(MSR_IA32_DS_AREA, old_ds);
 	__this_cpu_write(percpu_old_ds, old_ds);
 	wrmsrl(MSR_IA32_DS_AREA, this_cpu_ptr(percpu_ds));
 
-	//BIT(0) enable PMC0
 	wrmsrl(MSR_IA32_PEBS_ENABLE, BIT(32) | BIT(0));
 }
 
@@ -160,9 +130,5 @@ void pebs_exit(void *arg)
 {
 	wrmsrl(MSR_IA32_PEBS_ENABLE, 0ULL);
 	wrmsrl(MSR_IA32_DS_AREA, __this_cpu_read(percpu_old_ds));
-	//exit_pebs_struct();
-	/*if (__this_cpu_read(buffer_base)) {
-		kfree(__this_cpu_read(buffer_base));
-		__this_cpu_write(buffer_base, 0);
-	}*/
+
 }

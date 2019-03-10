@@ -6,6 +6,7 @@
 #define MSR_IA32_DS_AREA     		    0x600
 #define MSR_IA32_PERF_CABABILITIES  	0x345
 #define MSR_IA32_MISC_ENABLE            0x1A0
+#define MSR_IA32_PERF_CAPABILITIES      0x345
 
 /* Performance Event Select Register 0 */
 #define MSR_IA32_PERFEVTSEL_ADDRESS		0x00000186

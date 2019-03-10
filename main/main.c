@@ -1,9 +1,4 @@
-#ifdef __KERNEL__
-#include <linux/ioctl.h>
-#else
 #include <sys/ioctl.h>
-#endif
-
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -11,32 +6,39 @@
 #include <string.h>
 #include <errno.h>
 #include <stdint.h>
+
 #include "ime-ioctl.h"
 #include "intel_pmc_events.h"
 
 #define EXIT	0
 #define IOCTL 	1
 
+typedef struct{
+	int pmc_id[MAX_ID_PMC];
+	int event_id[MAX_ID_PMC];
+	int cpu_id[MAX_ID_PMC]; 
+	uint64_t start_value[MAX_ID_PMC]; 
+}configuration_t;
+
 int int_from_stdin()
 {
 	char buffer[12];
 	int i = -1;
-
 	if (fgets(buffer, sizeof(buffer), stdin)) {
 		sscanf(buffer, "%d", &i);
 	}
-
 	return i;
 }// int_from_stdin
 
 
 int ioctl_cmd(int fd)
 {
-	printf("%d: set LIST_EVENT\n", 0);
-	printf("%d: set IME_PROFILER_ON\n", _IOC_NR(IME_PROFILER_ON));
-	printf("%d: set IME_PROFILER_OFF\n", _IOC_NR(IME_PROFILER_OFF));
-	printf("%d: set IME_PMC_STATS\n", _IOC_NR(IME_PMC_STATS));
-	printf("%d: set IME_PMC_BUFFER\n", _IOC_NR(IME_PMC_BUFFER));
+	printf("%d: LIST_EVENT\n", 0);
+	printf("%d: IME_PROFILER_ON\n", _IOC_NR(IME_PROFILER_ON));
+	printf("%d: IME_PROFILER_OFF\n", _IOC_NR(IME_PROFILER_OFF));
+	printf("%d: IME_PMC_STATS\n", _IOC_NR(IME_PMC_STATS));
+	printf("%d: IME_READ_BUFFER\n", _IOC_NR(IME_READ_BUFFER));
+	printf("%d: CONFIGURATION\n", _IOC_NR(IME_READ_BUFFER)+1);
 
 	printf("Put cmd >> ");
 	int cmd = int_from_stdin();
@@ -56,17 +58,13 @@ int ioctl_cmd(int fd)
 		return err;
 	}
 
-	if(cmd == IME_PMC_BUFFER){
-
-	}
-
 	printf("Insert PMC id >> ");
 	int pmc_id = int_from_stdin();
 	if(cmd == _IOC_NR(IME_PROFILER_ON) || cmd == _IOC_NR(IME_PROFILER_OFF)){
 		struct sampling_spec* output = (struct sampling_spec*) malloc (sizeof(struct sampling_spec));
 		output->pmc_id = pmc_id;
 
-		if(output->pmc_id < 0 || output->pmc_id > MAX_ID_PMC){
+		if(output->pmc_id < 0 || output->pmc_id >= MAX_ID_PMC){
 			printf("IOCTL: IME_PROFILER failed -- invalid PMC id\n");
 			return -1;
 		}
@@ -75,7 +73,7 @@ int ioctl_cmd(int fd)
 			printf("Insert EVENT id >> ");
 			int event_id = int_from_stdin();
 			output->event_id = event_id;
-			if(output->event_id < 0 || output->event_id > MAX_ID_EVENT){
+			if(output->event_id < 0 || output->event_id >= MAX_ID_EVENT){
 				printf("IOCTL: IME_PROFILER failed -- invalid EVENT id\n");
 				return -1;
 			}
@@ -96,18 +94,32 @@ int ioctl_cmd(int fd)
 		return 0;
 	}
 
-  if(cmd == _IOC_NR(IME_PMC_STATS)){
+    if(cmd == _IOC_NR(IME_PMC_STATS)){
 		int i;
 		struct pmc_stats* args = (struct pmc_stats*) malloc (sizeof(struct pmc_stats));
 		args->pmc_id = pmc_id;
-		//args->percpu_value = (unsigned long*) malloc (sizeof(unsigned long)*numCPU);
 		if ((err = ioctl(fd, IME_PMC_STATS, args)) < 0){
 			printf("IOCTL: IME_PMC_STATS failed\n");
 			return err;
 		}
-    printf("IOCTL: IME_PMC_STATS success -- PMC%d\n", args->pmc_id);
+    	printf("IOCTL: IME_PMC_STATS success -- PMC%d\n", args->pmc_id);
 		for(i = 0; i < numCPU; i++){
 			printf("The resulting value of PMC%d on CPU%d is: %lx\n",args->pmc_id, i, args->percpu_value[i]);
+		}
+	}
+
+	if(cmd == _IOC_NR(IME_READ_BUFFER)){
+		int i;
+		struct buffer_struct* args = (struct buffer_struct*) malloc (sizeof(struct buffer_struct));
+		//args->percpu_value = (unsigned long*) malloc (sizeof(unsigned long)*numCPU);
+		if ((err = ioctl(fd, IME_READ_BUFFER, args)) < 0){
+			printf("IOCTL: IME_READ_BUFFER failed\n");
+			return err;
+		}
+		printf("IOCTL: IME_READ_BUFFER success\n");
+
+		for(i = 0; i < args->last_index; i++){
+			printf("The latency value of index%d is: %lu\n", i, args->buffer_sample[i].lat);
 		}
 	}
 	return err;
@@ -156,36 +168,37 @@ int main (int argc, char* argv[])
 		return err;
 	}
 	printf("IOCTL: IME_PROFILER_ON success\n");
-	
-	unsigned long n = 0, temp;
-	printf("int: %ld\n", n);
-	while(n < 30000000){
-		temp = n;
-		n = n*2;
-		n = n+3;
-		if(n > 3000){
-			//printf("int: %ld\n", n);
-		}
-		n = temp;
-		//Sleep(3);
-		//printf("int: %d\n", n);
-		n++;
-	}
 
-	int i;
+	int i, k = 0;
 	struct pmc_stats* args = (struct pmc_stats*) malloc (sizeof(struct pmc_stats));
 	args->pmc_id = 0;
+	
+	while(k < 4){
+		if ((err = ioctl(fd, IME_PMC_STATS, args)) < 0){
+			printf("IOCTL: IME_PMC_STATS failed\n");
+			return err;
+		}
+		printf("IOCTL: IME_PMC_STATS success -- PMC%d\n", args->pmc_id);
+	
+		for(i = 0; i < numCPU; i++){
+			printf("The resulting value of PMC%d on CPU%d is: %lx\n",args->pmc_id, i, args->percpu_value[i]);
+		}
 
-	if ((err = ioctl(fd, IME_PMC_STATS, args)) < 0){
-		printf("IOCTL: IME_PMC_STATS failed\n");
+		sleep(10);
+		k++;
+	}
+
+	struct buffer_struct* args_buf = (struct buffer_struct*) malloc (sizeof(struct buffer_struct));
+	//args_buf->percpu_value = (unsigned long*) malloc (sizeof(unsigned long)*numCPU);
+	if ((err = ioctl(fd, IME_READ_BUFFER, args_buf)) < 0){
+		printf("IOCTL: IME_READ_BUFFER failed\n");
 		return err;
 	}
-	printf("IOCTL: IME_PMC_STATS success -- PMC%d\n", args->pmc_id);
-	
-	for(i = 0; i < numCPU; i++){
-		printf("The resulting value of PMC%d on CPU%d is: %lx\n",args->pmc_id, i, args->percpu_value[i]);
-	}
+	printf("IOCTL: IME_READ_BUFFER success\n");
 
+	for(i = 0; i < args_buf->last_index; i++){
+		printf("The address value of index%d is: %lu\n", i, args_buf->buffer_sample[i].add);
+	}
 	if ((err = ioctl(fd, IME_PROFILER_OFF, output)) < 0){
 		printf("IOCTL: IME_PROFILER_OFF failed\n");
 		return err;
