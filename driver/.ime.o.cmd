@@ -1,0 +1,1 @@
+cmd_/home/serenaferracci/Desktop/IME/driver/ime.o := ld -m elf_x86_64 -z max-page-size=0x200000   -r -o /home/serenaferracci/Desktop/IME/driver/ime.o /home/serenaferracci/Desktop/IME/driver/ime_mod.o /home/serenaferracci/Desktop/IME/driver/control.o /home/serenaferracci/Desktop/IME/driver/irq_facility.o 
