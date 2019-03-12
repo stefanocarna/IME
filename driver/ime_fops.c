@@ -7,6 +7,7 @@
 #include "../main/ime-ioctl.h"
 #include "msr_config.h"
 #include "intel_pmc_events.h"
+#include "ime_pebs.h"
 
 extern struct pebs_user buffer_sample[MAX_BUFFER_SIZE];
 extern int user_index_written;
@@ -38,20 +39,24 @@ void debugPMU(void* arg)
 void disablePMC(void* arg)
 {
 	struct sampling_spec* args = (struct sampling_spec*) arg;
+	if(args->cpu_id[smp_processor_id()] == 0) return;
 	int pmc_id = args->pmc_id; 
 	preempt_disable();
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
+	wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
 	preempt_enable();
 }
 
 void enabledPMC(void* arg)
 {
+	u64 msr;
 	struct sampling_spec* args = (struct sampling_spec*) arg;
+	if(args->cpu_id[smp_processor_id()] == 0) return;
 	int pmc_id = args->pmc_id; 
 	u64 event = user_events[args->event_id];
 	preempt_disable();
-	wrmsrl(MSR_IA32_PMC(pmc_id), ~(0xffffffULL));
+	wrmsrl(MSR_IA32_PMC(pmc_id), ~(args->start_value));
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, BIT(pmc_id));
 	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | BIT(17) | BIT(16) | event);
 	preempt_enable();
@@ -76,10 +81,18 @@ long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if(!test_bit(args->pmc_id, pmc_bitmap)) goto out_pmc;
 			on_each_cpu(disablePMC, (void *) args, 1);
 			clear_bit(args->pmc_id, pmc_bitmap);
+			if(args->enable_PEBS == 1){
+				on_each_cpu(pebs_exit, (void *) args, 1);
+			}
 		}
 		else{
+			int k;
+			int cpu_mask;
 			if(test_bit(args->pmc_id, pmc_bitmap)) goto out_pmc;
 			set_bit(args->pmc_id, pmc_bitmap);
+			if(args->enable_PEBS == 1){
+				on_each_cpu(pebs_init, (void *)args, 1);
+			}
 			on_each_cpu(enabledPMC, (void *) args, 1);
 		}
 		kfree(args);
@@ -135,6 +148,12 @@ long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	out_read:
 		kfree(args);
 		return -1;
+	}
+
+	if(cmd == IME_RESET_BUFFER){
+		preempt_disable();
+		user_index_written = 0;
+		preempt_enable();
 	}
 	return err;
 }// ime_ctl_ioctl

@@ -2,6 +2,7 @@
 #define _IME_IOCTL_H_
 
 #define MAX_ID_PMC 4
+#define MAX_ID_CPU 4
 #define MAX_ID_EVENT 7
 #define numCPU sysconf(_SC_NPROCESSORS_ONLN)
 #define MAX_CPU 256
@@ -15,6 +16,9 @@ struct pmc_stats {
 struct sampling_spec {
 	int pmc_id;
     int event_id;
+	int cpu_id[MAX_ID_CPU]; 
+	uint64_t start_value; 
+	int enable_PEBS;
 };
 
 struct pebs_user{
@@ -60,5 +64,6 @@ struct buffer_struct {
 #define IME_PROFILER_OFF					_IO(IME_IOC_MAGIC, _IO_NB+1)
 #define IME_PMC_STATS						_IO(IME_IOC_MAGIC, _IO_NB+2)
 #define IME_READ_BUFFER						_IO(IME_IOC_MAGIC, _IO_NB+3)
+#define IME_RESET_BUFFER					_IO(IME_IOC_MAGIC, _IO_NB+4)
 
 #endif /* _IME_IOCTL_H_ */

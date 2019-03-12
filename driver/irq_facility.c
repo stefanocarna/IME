@@ -48,6 +48,7 @@ void disableAllPMC(void* arg)
 	for(pmc_id = 0; pmc_id < MAX_ID_PMC; pmc_id++){
 		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 		wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
+		wrmsrl(MSR_IA32_PMC(pmc_id), 0ULL);
 	}
 	preempt_enable();
 }

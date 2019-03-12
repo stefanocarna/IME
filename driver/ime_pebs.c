@@ -57,6 +57,7 @@ struct pebs_user buffer_sample[MAX_BUFFER_SIZE];
 static DEFINE_PER_CPU(unsigned long, percpu_old_ds);
 static DEFINE_PER_CPU(pebs_arg_t *, percpu_pebs_last_written);
 spinlock_t lock_buffer;
+u64 reset_value[MAX_ID_PMC];
 
 static int allocate_buffer(void)
 {
@@ -79,7 +80,10 @@ static int allocate_buffer(void)
 	ds->pebs_index					= ppebs;
 	ds->pebs_absolute_maximum		= (pebs_arg_t *)((char *)ppebs + (nRecords-1) * PEBS_STRUCT_SIZE);
 	ds->pebs_interrupt_threshold	= (pebs_arg_t *)((char *)ppebs + PEBS_STRUCT_SIZE);
-	ds->pebs_counter0_reset			= ~(0xfffffffULL);
+	ds->pebs_counter0_reset			= ~(reset_value[0]);
+	ds->pebs_counter1_reset			= ~(reset_value[1]);
+	ds->pebs_counter2_reset			= ~(reset_value[2]);
+	ds->pebs_counter3_reset			= ~(reset_value[3]);
 	ds->reserved					= 0;
 	return 0;
 }
@@ -116,19 +120,31 @@ void exit_pebs_struct(void){
 
 void pebs_init(void *arg)
 {
+	u64 pebs;
+	struct sampling_spec* args = (struct sampling_spec*) arg;
+	if(args->cpu_id[smp_processor_id()] == 0) return;
+	int pmc_id = args->pmc_id;
 	unsigned long old_ds;
+	reset_value[pmc_id] = args->start_value;
+
 	allocate_buffer(); 
 
 	rdmsrl(MSR_IA32_DS_AREA, old_ds);
 	__this_cpu_write(percpu_old_ds, old_ds);
 	wrmsrl(MSR_IA32_DS_AREA, this_cpu_ptr(percpu_ds));
 
-	wrmsrl(MSR_IA32_PEBS_ENABLE, BIT(32) | BIT(0));
+	wrmsrl(MSR_IA32_PEBS_ENABLE, BIT(32+pmc_id) | BIT(pmc_id));
+	rdmsrl(MSR_IA32_PEBS_ENABLE, pebs);
 }
 
 void pebs_exit(void *arg)
 {
-	wrmsrl(MSR_IA32_PEBS_ENABLE, 0ULL);
+	struct sampling_spec* args = (struct sampling_spec*) arg;
+	if(args->cpu_id[smp_processor_id()] == 0) return;
+	int pmc_id = args->pmc_id;
+	u64 pebs;
+	rdmsrl(MSR_IA32_PEBS_ENABLE, pebs);
+	wrmsrl(MSR_IA32_PEBS_ENABLE, pebs & (~BIT(pmc_id)));
 	wrmsrl(MSR_IA32_DS_AREA, __this_cpu_read(percpu_old_ds));
 
 }
