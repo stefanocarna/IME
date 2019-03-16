@@ -12,8 +12,9 @@
 #include "intel_pmc_events.h"
 
 const char * device = "/dev/ime/pmc";
-//pmc mask, cpu mask, event mask, start values, pebs mask, user mask, kernel mask, on/off
-#define ARGS "p:c:e:s:b:u:k:d:m:n"
+//p: pmc mask, c: cpu mask, e: event mask, s: start values, b: pebs mask, u: user mask, 
+//k: kernel mask, d: dimension pebs buffer, m: dimension module buffer
+#define ARGS "p:c:e:s:b:u:k:d:m:"
 #define MAX_LEN 265
 #define EXIT	0
 #define IOCTL 	1
