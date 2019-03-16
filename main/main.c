@@ -1,27 +1,58 @@
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>     /* exit func */
+#include <stdio.h>      /* printf func */
+#include <fcntl.h>      /* open syscall */
+#include <getopt.h>     /* args utility */
+#include <sys/ioctl.h>  /* ioctl syscall*/
+#include <unistd.h>	/* close syscall */
 #include <string.h>
-#include <errno.h>
 #include <stdint.h>
+#include <ctype.h>
 
 #include "ime-ioctl.h"
 #include "intel_pmc_events.h"
 
+const char * device = "/dev/ime/pmc";
+//pmc mask, cpu mask, event mask, start values, pebs mask, user mask, kernel mask, on/off
+#define ARGS "p:c:e:s:b:u:k:d:m:n"
+#define MAX_LEN 265
 #define EXIT	0
 #define IOCTL 	1
-
 typedef struct{
 	int pmc_id[MAX_ID_PMC];
 	int event_id[MAX_ID_PMC];
 	int cpu_id[MAX_ID_PMC][MAX_ID_CPU]; 
 	uint64_t start_value[MAX_ID_PMC]; 
-	int enable_PEBS[MAX_ID_PMC];
+	int enable_PEBS[MAX_ID_PMC][MAX_ID_CPU];
+    int user[MAX_ID_PMC][MAX_ID_CPU];
+    int kernel[MAX_ID_PMC][MAX_ID_CPU];
+    int buffer_module_length;
+    int buffer_pebs_length;
 }configuration_t;
 
-configuration_t current_config;
+char binary[16][5] = {"0000", "0001", "0010", "0011", "0100",
+ "0101", "0110", "0111", "1000", "1001", "1010", "1011", "1100", "1101", "1110", "1111"};
+
+char* convert_binary(char c){
+    char* res;
+    if(c >= '0' && c <= '9') return binary[atoi(&c)];
+    if(c >= 'A' && c <= 'F') return binary[c-'A'+10];
+    return NULL;
+}
+
+int convert_decimal(char c){
+    int res;
+    if(c >= '0' && c <= '9') return atoi(&c);
+    if(c >= 'A' && c <= 'F') return (c-'A'+10);
+    return -1;
+}
+
+int check_len(char* input){
+    int len = strnlen(input, MAX_LEN);
+    if(len != MAX_ID_PMC){
+        return 0;
+    }
+    return 1;
+}
 
 int int_from_stdin()
 {
@@ -33,32 +64,12 @@ int int_from_stdin()
 	return i;
 }// int_from_stdin
 
-uint64_t uint64_from_stdin()
-{
-	char buffer[24];
-	uint64_t i = -1;
-	if (fgets(buffer, sizeof(buffer), stdin)) {
-		sscanf(buffer, "%lx", &i);
-	}
-	return i;
-}
-
-void reset_config(int i){
-	int k;
-	current_config.pmc_id[i] = 0;
-	current_config.event_id[i] = 0;
-	current_config.enable_PEBS[i] = 0;
-	current_config.start_value[i] = 0;
-	for(k = 0; k < MAX_ID_CPU; k++){
-		current_config.cpu_id[i][k] = 0;
-	}
-}
+configuration_t current_config;
 
 int ioctl_cmd(int fd)
 {
 	printf("%d: LIST_EVENT\n", 0);
 	printf("%d: READ_CONFIGURATION\n", 1);
-	printf("%d: SET_CONFIGURATION\n", 2);
 	printf("%d: IME_PROFILER_ON\n", _IOC_NR(IME_PROFILER_ON));
 	printf("%d: IME_PROFILER_OFF\n", _IOC_NR(IME_PROFILER_OFF));
 	printf("%d: IME_PMC_STATS\n", _IOC_NR(IME_PMC_STATS));
@@ -86,79 +97,29 @@ int ioctl_cmd(int fd)
 
 	if(cmd == 1){
 		int i;
-		printf("PMC | EVENT |  CPU  | PEBS | START VALUE\n");
 		for (i = 0; i < MAX_ID_PMC; i++){
 			if(current_config.pmc_id[i] == 1){
-				printf(" %d |   %d  | ", i, current_config.event_id[i]);
+				printf("PMC%d | EVENT:%d", i, current_config.event_id[i]);
 				int k;
+                printf(" | CPU MASK: ");
 				for(k = 0; k < MAX_ID_CPU; k++){
-					if(current_config.cpu_id[i][k] == 1){
-						printf("%d", k);
-					}
+					printf("%d", current_config.cpu_id[i][k]);
 				}
-				(current_config.enable_PEBS[i] == 1)? printf(" | yes |") : printf(" | no |");
-				printf(" %lx \n", current_config.start_value[i]);
-			}
-		}
-		return 0;
-	}
-
-	if(cmd == 2){
-		int i;
-		for (i = 0; i < MAX_ID_PMC; i++){
-			reset_config(i);
-		}
-		for (i = 0; i < MAX_ID_PMC; i++){
-			printf("Put event id for PMC%d (-1 if you don't want use this PMC) >> ", i);
-			int event = int_from_stdin();
-			if(event >= 0 && event < MAX_ID_EVENT){
-				current_config.pmc_id[i] = 1;
-				current_config.event_id[i] = event;
-			}
-		}
-		for (i = 0; i < MAX_ID_PMC; i++){
-			if(current_config.pmc_id[i] == 1){
-				printf("Enable PEBS for PMC%d (1: yes, 0: no) >> ", i);
-				int pebs = int_from_stdin();
-				if(pebs == 1){
-					current_config.enable_PEBS[i] = 1;
+                printf(" | PEBS MASK: ");
+				for(k = 0; k < MAX_ID_CPU; k++){
+					printf("%d", current_config.enable_PEBS[i][k]);
 				}
-				else{
-					current_config.enable_PEBS[i] = 0;
+                printf(" | USER MASK: ");
+				for(k = 0; k < MAX_ID_CPU; k++){
+					printf("%d", current_config.user[i][k]);
 				}
-			}
-		}
-
-		for (i = 0; i < MAX_ID_PMC; i++){
-			if(current_config.pmc_id[i] == 1){
-				printf("Start value for PMC%d >> ", i);
-				current_config.start_value[i] = uint64_from_stdin();
-			}
-		}
-		for (i = 0; i < MAX_ID_PMC; i++){
-			if(current_config.pmc_id[i] == 1){
-				printf("How many CPU for PMC%d >> ", i);
-				int cpu = int_from_stdin();
-				if(cpu <= 0){
-					reset_config(i);
+                printf(" | KERNEL MASK: ");
+				for(k = 0; k < MAX_ID_CPU; k++){
+					printf("%d", current_config.kernel[i][k]);
 				}
-				else if(cpu >= MAX_ID_CPU){
-					int k;
-					for(k = 0; k < MAX_ID_CPU; k++){
-						current_config.cpu_id[i][k] = 1;
-					}
-				}
-				else{
-					int k;
-					for(k = 0; k < cpu; k++){
-						int cpu_id = -1;
-						while(cpu_id < 0 || cpu_id >= MAX_ID_CPU || current_config.cpu_id[i][cpu_id] == 1){
-							printf("#%d CPU id >> ", i);
-							cpu_id = int_from_stdin();
-						}
-						current_config.cpu_id[i][cpu_id] = 1;
-					}
-				}
+				printf(" | START VALUE: %lx\n", current_config.start_value[i]);
+                printf(" | PEBS DIM: %d\n", current_config.buffer_pebs_length);
+                printf(" | MODULE DIM: %d\n", current_config.buffer_module_length);
 			}
 		}
 		return 0;
@@ -173,10 +134,20 @@ int ioctl_cmd(int fd)
 			if(current_config.pmc_id[i] == 0) continue;
 			output->pmc_id = i;
 			output->event_id = current_config.event_id[i];
-			output->enable_PEBS = current_config.enable_PEBS[i];
+            output->buffer_module_length = current_config.buffer_module_length;
+            output->buffer_pebs_length = current_config.buffer_pebs_length;
+			for(k = 0; k < MAX_ID_CPU; k++){
+				output->enable_PEBS[k] = current_config.enable_PEBS[i][k];
+			}
 			output->start_value = current_config.start_value[i];
 			for(k = 0; k < MAX_ID_CPU; k++){
 				output->cpu_id[k] = current_config.cpu_id[i][k];
+			}
+            for(k = 0; k < MAX_ID_CPU; k++){
+				output->user[k] = current_config.user[i][k];
+			}
+            for(k = 0; k < MAX_ID_CPU; k++){
+				output->kernel[k] = current_config.kernel[i][k];
 			}
 			if(on == 1){	
 				if ((err = ioctl(fd, IME_PROFILER_ON, output)) < 0){
@@ -225,7 +196,7 @@ int ioctl_cmd(int fd)
 		printf("IOCTL: IME_READ_BUFFER success\n");
 
 		for(i = 0; i < args->last_index; i++){
-			printf("The latency value of index%d is: %lu\n", i, args->buffer_sample[i].lat);
+			printf("The global value of index%d is: %lu\n", i, args->buffer_sample[i].stat);
 		}
 		free(args);
 	}
@@ -240,19 +211,147 @@ int ioctl_cmd(int fd)
 	return err;
 }// ioctl_cmd
 
-const char * device = "/dev/ime/pmc";
-
-int main (int argc, char* argv[])
+int main(int argc, char **argv)
 {
-	int err;
-	int fd = open(device, 0666);
+
+	/* nothing to do */
+	if (argc < 2) goto open_device;
+
+	int fd, option, err, val;
+	char path[128];
+    int len, i, k;
+    uint64_t sval;
+    //optarg is char*
+	fd = open(device, 0666);
 
 	if (fd < 0) {
 		printf("Error, cannot open %s\n", device);
 		return -1;
 	}
 
-	printf("What do you wanna do?\n");
+    err = 0;
+    option = getopt(argc, argv, ARGS);
+
+    while(!err && option != -1) {
+        switch(option) {
+        case 'p':
+            if(!check_len(optarg)) break;
+
+            for(i = 0; i < MAX_ID_PMC; i++){
+                if(optarg[i] == '1') current_config.pmc_id[i] = 1;
+                else current_config.pmc_id[i] = 0;
+            }
+            break;
+        case 'c':
+            len = strnlen(optarg, MAX_LEN);
+            if(len != MAX_ID_CPU){
+                err = 1;
+                break;
+            }
+
+            for(i = 0; i < len; i++){
+                char c = toupper(optarg[i]);
+                if(current_config.pmc_id[i] == 1 && convert_binary(c) != NULL){
+                    char* cpu = convert_binary(c);
+                    for(k = 0; k < MAX_ID_CPU; k++){
+                        if(cpu[MAX_ID_CPU-1-k] == '1') current_config.cpu_id[i][k] = 1;
+                        else current_config.cpu_id[i][k] = 0;
+                    }
+                }
+            }
+            break;
+        case 'b':
+            if(!check_len(optarg)) break;
+            
+            for(i = 0; i < MAX_ID_PMC; i++){
+                char c = toupper(optarg[i]);
+                if(current_config.pmc_id[i] == 1 && convert_binary(c) != NULL){
+                    char* cpu = convert_binary(c);
+                    for(k = 0; k < MAX_ID_CPU; k++){
+                        if(cpu[MAX_ID_CPU-1-k] == '1' && current_config.cpu_id[i][k] == 1) current_config.enable_PEBS[i][k] = 1;
+                        else current_config.enable_PEBS[i][k] = 0;
+                    }
+                }
+            }
+            break;
+        case 'e':
+            len = strnlen(optarg, MAX_LEN);
+            if(len != (MAX_ID_PMC*2)) break;
+            for(i = 0; i < (MAX_ID_PMC*2); i = i+2){
+                char c1 = toupper(optarg[i]);
+                char c2 = toupper(optarg[i+1]);
+                if(current_config.pmc_id[i/2] == 0) continue;
+                if((convert_decimal(c1) == -1) || (convert_decimal(c2) == -1)){
+                    current_config.pmc_id[i/2] = 0;
+                    continue;
+                }
+                val = convert_decimal(c1)*16 + convert_decimal(c2);
+                if(val < 0 || val >= MAX_ID_EVENT){ 
+                    current_config.pmc_id[i/2] = 0;
+                    continue;
+                }
+                current_config.event_id[i/2] = val;
+            }
+            break;
+        case 's':
+            sscanf(optarg, "%lx", &sval);
+            for(i = 0; i < MAX_ID_PMC; i++){
+                current_config.start_value[i] = sval;
+            }
+            break;
+        case 'u':
+            if(!check_len(optarg)) break;
+            
+            for(i = 0; i < MAX_ID_PMC; i++){
+                char c = toupper(optarg[i]);
+                if(current_config.pmc_id[i] == 1 && convert_binary(c) != NULL){
+                    char* cpu = convert_binary(c);
+                    for(k = 0; k < MAX_ID_CPU; k++){
+                        if(cpu[MAX_ID_CPU-1-k] == '1' && current_config.cpu_id[i][k] == 1) current_config.user[i][k] = 1;
+                        else current_config.user[i][k] = 0;
+                    }
+                }
+            }
+            break;
+        case 'k':
+            if(!check_len(optarg)) break;
+            
+            for(i = 0; i < MAX_ID_PMC; i++){
+                char c = toupper(optarg[i]);
+                if(current_config.pmc_id[i] == 1 && convert_binary(c) != NULL){
+                    char* cpu = convert_binary(c);
+                    for(k = 0; k < MAX_ID_CPU; k++){
+                        if(cpu[MAX_ID_CPU-1-k] == '1' && current_config.cpu_id[i][k] == 1) current_config.kernel[i][k] = 1;
+                        else current_config.kernel[i][k] = 0;
+                    }
+                }
+            }
+            break;
+        case 'd':
+            val = atoi(optarg);
+            printf("dimension: %d\n", val);
+            current_config.buffer_pebs_length = val;
+            break;
+        case 'm':
+            val = atoi(optarg);
+            current_config.buffer_module_length = val;
+            break;    
+        default:
+            goto end;
+        }
+        /* get next arg */
+        option = getopt(argc, argv, ARGS);
+    }
+
+open_device:
+    fd = open(device, 0666);
+
+	if (fd < 0) {
+		printf("Error, cannot open %s\n", device);
+		return -1;
+	}
+end:
+    printf("What do you wanna do?\n");
 	printf("0) EXIT\n");
 	printf("1) IOCTL\n");
 
@@ -276,4 +375,6 @@ int main (int argc, char* argv[])
 
   	close(fd);
 	return 0;
+failure:
+	exit(EXIT_FAILURE);
 }// main

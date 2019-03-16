@@ -7,6 +7,8 @@
 #include "irq_facility.h"
 #include "ime_handler.h"
 
+//#define MAX_ID_CPU
+
 static void setup_ime_lvt(void *err)
 {
 	apic_write(APIC_LVTPC, BIT(10));
@@ -60,6 +62,7 @@ void cleanup_pmc(void){
 
 void print_reg(void){
 	u64 msr;
+	int i;
 
 	rdmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, msr);
 	pr_info("[CPU%d] MSR_IA32_PERF_GLOBAL_STATUS_RESET: %llx\n", smp_processor_id(), msr);
@@ -76,9 +79,8 @@ void print_reg(void){
 	rdmsrl(MSR_IA32_DS_AREA, msr);
 	pr_info("[CPU%d] MSR_IA32_DS_AREA: %llx\n", smp_processor_id(), msr);
 
-	rdmsrl(MSR_IA32_PERFEVTSEL0, msr);
-	pr_info("[CPU%d] MSR_IA32_PERFEVTSEL0: %llx\n", smp_processor_id(), msr);
-
-	rdmsrl(MSR_IA32_PMC0, msr);
-	pr_info("[CPU%d] MSR_IA32_PMC0: %llx\n", smp_processor_id(), msr);
+	for(i = 0; i < MAX_ID_PMC; i++){
+		rdmsrl(MSR_IA32_PERFEVTSEL(i), msr);
+		pr_info("[CPU%d] MSR_IA32_PERFEVTSEL%d: %llx\n", smp_processor_id(), i, msr);
+	}
 }

@@ -18,7 +18,11 @@ struct sampling_spec {
     int event_id;
 	int cpu_id[MAX_ID_CPU]; 
 	uint64_t start_value; 
-	int enable_PEBS;
+	int enable_PEBS[MAX_ID_CPU];
+	int user[MAX_ID_CPU];
+	int kernel[MAX_ID_CPU];
+	int buffer_module_length;
+    int buffer_pebs_length;
 };
 
 struct pebs_user{
@@ -58,7 +62,7 @@ struct buffer_struct {
 /* Use 'j' as magic number */
 #define IME_IOC_MAGIC			'q'
 
-#define _IO_NB	3
+#define _IO_NB	2
 
 #define IME_PROFILER_ON						_IO(IME_IOC_MAGIC, _IO_NB)
 #define IME_PROFILER_OFF					_IO(IME_IOC_MAGIC, _IO_NB+1)
