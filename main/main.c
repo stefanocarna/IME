@@ -12,11 +12,10 @@
 #include "intel_pmc_events.h"
 
 const char * device = "/dev/ime/pmc";
+int exit_ = 0;
 //pmc mask, cpu mask, event mask, start values, pebs mask, user mask, kernel mask, on/off
 #define ARGS "p:c:e:s:b:u:k:d:m:n"
-#define MAX_LEN 265
-#define EXIT	0
-#define IOCTL 	1
+#define MAX_LEN 256
 typedef struct{
 	int pmc_id[MAX_ID_PMC];
 	int event_id[MAX_ID_PMC];
@@ -68,8 +67,9 @@ configuration_t current_config;
 
 int ioctl_cmd(int fd)
 {
-	printf("%d: LIST_EVENT\n", 0);
-	printf("%d: READ_CONFIGURATION\n", 1);
+	printf("\n%d: EXIT\n", 0);
+	printf("%d: LIST_EVENT\n", 1);
+	printf("%d: READ_CONFIGURATION\n", 2);
 	printf("%d: IME_PROFILER_ON\n", _IOC_NR(IME_PROFILER_ON));
 	printf("%d: IME_PROFILER_OFF\n", _IOC_NR(IME_PROFILER_OFF));
 	printf("%d: IME_PMC_STATS\n", _IOC_NR(IME_PMC_STATS));
@@ -85,6 +85,11 @@ int ioctl_cmd(int fd)
 	unsigned long uvar = -1;
 
 	if(cmd == 0){
+		exit_ = 1;
+		return err;
+	}
+
+	if(cmd == 1){
 		printf("%d: EVT_INSTRUCTIONS_RETIRED\n", EVT_INSTRUCTIONS_RETIRED);
 		printf("%d: EVT_UNHALTED_CORE_CYCLES\n", EVT_UNHALTED_CORE_CYCLES);
 		printf("%d: EVT_UNHALTED_REFERENCE_CYCLES\n", EVT_UNHALTED_REFERENCE_CYCLES);
@@ -95,7 +100,7 @@ int ioctl_cmd(int fd)
 		return err;
 	}
 
-	if(cmd == 1){
+	if(cmd == 2){
 		int i;
 		for (i = 0; i < MAX_ID_PMC; i++){
 			if(current_config.pmc_id[i] == 1){
@@ -189,6 +194,7 @@ int ioctl_cmd(int fd)
 	if(cmd == _IOC_NR(IME_READ_BUFFER)){
 		int i;
 		struct buffer_struct* args = (struct buffer_struct*) malloc (sizeof(struct buffer_struct));
+		args->last_index = MAX_BUFFER_SIZE;
 		if ((err = ioctl(fd, IME_READ_BUFFER, args)) < 0){
 			printf("IOCTL: IME_READ_BUFFER failed\n");
 			return err;
@@ -241,6 +247,7 @@ int main(int argc, char **argv)
                 if(optarg[i] == '1') current_config.pmc_id[i] = 1;
                 else current_config.pmc_id[i] = 0;
             }
+			ioctl(fd, IME_RESET_BUFFER);
             break;
         case 'c':
             len = strnlen(optarg, MAX_LEN);
@@ -329,7 +336,6 @@ int main(int argc, char **argv)
             break;
         case 'd':
             val = atoi(optarg);
-            printf("dimension: %d\n", val);
             current_config.buffer_pebs_length = val;
             break;
         case 'm':
@@ -351,30 +357,11 @@ open_device:
 		return -1;
 	}
 end:
-    printf("What do you wanna do?\n");
-	printf("0) EXIT\n");
-	printf("1) IOCTL\n");
-
-	int cmd = int_from_stdin();
-
-	while (cmd)	{
-		switch (cmd) {
-		case IOCTL :
-			if (ioctl_cmd(fd))
-				printf("IOCTL ERROR\n");
-			break;
-		default : 
-			fprintf(stderr, "bad cmd\n");
-		}
-
-		printf("\n\n NEW REQ \n\n\n");
-		printf("0) EXIT\n");
-		printf("1) IOCTL\n");
-		cmd = int_from_stdin();
+	while (1)	{
+		if (ioctl_cmd(fd)) printf("IOCTL ERROR\n");
+		if(exit_ == 1) break;
 	}
 
   	close(fd);
 	return 0;
-failure:
-	exit(EXIT_FAILURE);
 }// main

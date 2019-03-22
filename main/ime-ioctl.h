@@ -62,7 +62,7 @@ struct buffer_struct {
 /* Use 'j' as magic number */
 #define IME_IOC_MAGIC			'q'
 
-#define _IO_NB	2
+#define _IO_NB	3
 
 #define IME_PROFILER_ON						_IO(IME_IOC_MAGIC, _IO_NB)
 #define IME_PROFILER_OFF					_IO(IME_IOC_MAGIC, _IO_NB+1)
