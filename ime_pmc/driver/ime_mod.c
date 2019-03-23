@@ -7,7 +7,6 @@
 #include "ime_pebs.h"
 #include "ime_fops.h"
 
-u64 count = 0;
 
 static __init int hop_init(void)
 {
@@ -27,7 +26,6 @@ void __exit hop_exit(void)
 	cleanup_resources();
 	disable_nmi();
 	cleanup_pmc();
-	pr_info("count: %llx\n");
 }// hop_exit
 
 

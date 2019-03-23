@@ -7,7 +7,6 @@
 #include "irq_facility.h"
 
 extern u64 start_value;
-extern u64 count;
 
 static inline int handle_ime_event(struct pt_regs *regs)
 {
@@ -18,8 +17,6 @@ static inline int handle_ime_event(struct pt_regs *regs)
 	if(global & BIT(62)){ 
 		//print_reg();
 		write_buffer();
-		__sync_fetch_and_add(&count, 1);
-		pr_info("count: %llx\n", count);
 		//wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 		wrmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, BIT(62));
 		return 1;

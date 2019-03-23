@@ -32,27 +32,6 @@ u64 user_events[MAX_NUM_EVENT] = {
     EVT_MEM_LOAD_RETIRED_L3_HIT			
 };
 
-/*void contextSwitchPMC(void){
-	unsigned int cpu = get_cpu();
-
-	if (!(iso_struct.state && iso_struct.cpus_state & BIT_ULL(cpu) && is_current_enabled))
-		goto off;
-
-	if(!(iso_struct.cpus_pmc & BIT_ULL(cpu))){
-		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0xfULL);
-		iso_struct.cpus_pmc |= BIT_ULL(cpu);
-	}
-	goto end;
-off:
-	if(iso_struct.cpus_pmc & BIT_ULL(cpu)){
-		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
-		iso_struct.cpus_pmc &= ~(BIT_ULL(cpu));
-	}
-end:
-	put_cpu();
-	return 0;
-}*/
-
 void set_mitigation(void* arg){
 	wrmsrl(MSR_IA32_DEBUGCTL, BIT(12));
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
