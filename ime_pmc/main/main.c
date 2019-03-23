@@ -178,7 +178,6 @@ int ioctl_cmd(int fd)
 					return err;
 				}
 				printf("IOCTL: IME_RESET_PMC success\n");
-				current_config.pmc_id[i] = 0;
 			}
 		}
 		free(output);

@@ -104,7 +104,7 @@ void write_buffer(void){
 	debug_store_t *ds;
 	pebs_arg_t *pebs, *end;
 	ds = this_cpu_ptr(percpu_ds);
-	pebs = (pebs_arg_t *) ds->pebs_buffer_base;
+	/*pebs = (pebs_arg_t *) ds->pebs_buffer_base;
 	end = (pebs_arg_t *)ds->pebs_index;
 	for (; pebs < end; pebs = (pebs_arg_t *)((char *)pebs + PEBS_STRUCT_SIZE)) {
 		memcpy(&(buffer_sample[write_index]), pebs, sizeof(struct pebs_user));
@@ -120,7 +120,7 @@ void write_buffer(void){
 			write_index = 0;
 			write_cycle++;
 		}
-	}
+	}*/
 	ds->pebs_index = (pebs_arg_t *) ds->pebs_buffer_base;
 }
 
