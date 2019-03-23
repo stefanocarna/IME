@@ -1,1 +1,0 @@
-cmd_/home/serena/Desktop/IME/joejoe/driver/joejoe.ko := ld -r -m elf_x86_64 -T ./scripts/module-common.lds --build-id  -o /home/serena/Desktop/IME/joejoe/driver/joejoe.ko /home/serena/Desktop/IME/joejoe/driver/joejoe.o /home/serena/Desktop/IME/joejoe/driver/joejoe.mod.o ;  true
