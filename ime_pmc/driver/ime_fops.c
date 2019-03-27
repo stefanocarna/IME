@@ -17,8 +17,9 @@ extern int read_index;
 extern unsigned long write_cycle;
 extern unsigned long read_cycle;
 extern int nRecords_module;
+extern u64 samples_pmc;
 u64 pmc_mask = 0;
-u64 start_value;
+u64 start_value[MAX_ID_PMC];
 
 DECLARE_BITMAP(pmc_bitmap, sizeof(MAX_PMC));
 
@@ -64,7 +65,6 @@ void debugPMC(void* arg){
 	rdmsrl(pmu, msr);
 	args->percpu_value[cpu] = msr;
 	preempt_enable();
-	//print_reg();
 }
 
 void resetPMC(void* arg){
@@ -81,17 +81,19 @@ void resetPMC(void* arg){
 
 void setupPMC(void* arg){
 	int pmc_id;
+	u64 msr;
 	struct sampling_spec* args = (struct sampling_spec*) arg;
 	if(args->cpu_id[smp_processor_id()] == 0) return;
+	pmc_id = args->pmc_id;
 	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), 0ULL);
-	if(!args->enable_PEBS[smp_processor_id()]) pmc_mask |= BIT(20);
+	if(/*!args->enable_PEBS[smp_processor_id()]*/ pmc_id == 0) pmc_mask |= BIT(20);
 	if(args->user[smp_processor_id()]) pmc_mask |= BIT(16);
-	if(args->kernel[smp_processor_id()]) pmc_mask |= BIT(17);
-	pmc_id = args->pmc_id; 
+	if(args->kernel[smp_processor_id()]) pmc_mask |= BIT(17); 
 	u64 event = user_events[args->event_id];
 	preempt_disable();
 	wrmsrl(MSR_IA32_PMC(pmc_id), ~(args->start_value));
 	wrmsrl(MSR_IA32_PERFEVTSEL(pmc_id), BIT(22) | pmc_mask | event);
+	rdmsrl(MSR_IA32_PERFEVTSEL(pmc_id), msr);
 	preempt_enable();
 	
 }
@@ -120,7 +122,7 @@ long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg){
 		else{
 			if(test_bit(args->pmc_id, pmc_bitmap)) goto out_pmc;
 			set_bit(args->pmc_id, pmc_bitmap);
-			start_value = ~(args->start_value);
+			start_value[args->pmc_id] = ~(args->start_value);
 			on_each_cpu(pebs_init, (void *)args, 1);
 			on_each_cpu(setupPMC, (void *) args, 1);
 		}
@@ -169,14 +171,15 @@ long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg){
 		current_write = write_index;
 		current_rcycle = read_cycle;
 		current_wcycle = write_cycle;
-		for(; !(current_read == current_write && current_wcycle == current_rcycle) && k < args->last_index;){
+		pr_info("samples: %llx\n", write_index);
+		/*for(; !(current_read == current_write && current_wcycle == current_rcycle) && k < args->last_index;){
 			int new_index;
 			memcpy(&(args->buffer_sample[k]), &(buffer_sample[current_read]), sizeof(struct pebs_user));
 			new_index = (current_read+1)%nRecords_module;
 			if(new_index < current_read) current_rcycle++;
 			current_read = new_index;
 			k++;
-		}
+		}*/
 		args->last_index = k;
 
 		err = access_ok(VERIFY_WRITE, (void *)arg, sizeof(struct buffer_struct));

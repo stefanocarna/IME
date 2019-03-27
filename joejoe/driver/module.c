@@ -70,7 +70,6 @@ static __init int mod_init(void)
 	
 	kstrtoul(enable, 16, &hook_func_enable);
 	kstrtoul(disable, 16, &hook_func_disable);
-	pr_info("Module Init -- enable: %lx\n", hook_func_enable);
 
 	err = setup_devices();
 	if (err) {
