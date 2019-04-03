@@ -21,7 +21,7 @@ static inline int handle_ime_event(struct pt_regs *regs)
 	rdmsrl(MSR_IA32_PERF_GLOBAL_STATUS, global);
 	if(global & BIT(62)){ 
 		wrmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, BIT(62));
-		write_buffer();
+		/*write_buffer();
 		if(!once){
 			pr_info("\n\n\n\n");
 			print_reg();
@@ -33,11 +33,16 @@ static inline int handle_ime_event(struct pt_regs *regs)
 			if(msr < (~reset_value_pmc[i])){
 				wrmsrl(MSR_IA32_PMC(i), ~reset_value_pmc[i]);
 			}
-		}
+		}*/
+		wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, ~(0ULL));
 		return 1;
 	}
-	if(global & 0xfULL){
+	/*if(global & 0x70000000fULL){
 		int k = 0;
+		if(global & 0x700000000ULL){
+			wrmsrl(MSR_IA32_PERF_GLOBAL_STATUS_RESET, 0x700000000ULL);
+			k++;
+		}
 		for(i = 0; i < MAX_ID_PMC; i++){
 			if(global & BIT(i)){ 
 				if(reset_value_pmc[i] != -1) wrmsrl(MSR_IA32_PMC(i), ~reset_value_pmc[i]);
@@ -60,7 +65,7 @@ static inline int handle_ime_event(struct pt_regs *regs)
 	print_reg();
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 	print_reg();
-	pr_info("\n\n\n\n");
+	pr_info("\n\n\n\n");*/
 	return 0;
 }// handle_ibs_event
 

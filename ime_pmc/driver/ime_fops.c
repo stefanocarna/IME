@@ -34,7 +34,7 @@ u64 user_events[MAX_NUM_EVENT] = {
 };
 
 void set_mitigation(void* arg){
-	wrmsrl(MSR_IA32_DEBUGCTL, BIT(12));
+	wrmsrl(MSR_IA32_DEBUGCTL, 0ULL);
 	wrmsrl(MSR_IA32_PERF_GLOBAL_CTRL, 0ULL);
 }
 
