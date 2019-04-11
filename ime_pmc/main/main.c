@@ -206,18 +206,31 @@ int ioctl_cmd(int fd)
 	}
 
 	if(cmd == _IOC_NR(IME_READ_BUFFER)){
-		int i;
-		struct buffer_struct* args = (struct buffer_struct*) malloc (sizeof(struct buffer_struct));
-		args->last_index = MAX_BUFFER_SIZE;
+		unsigned long size_buffer, i;
+		struct buffer_struct* args;
+		if ((err = ioctl(fd, IME_SIZE_BUFFER, &size_buffer)) < 0){
+			printf("IOCTL: IME_SIZE_BUFFER failed\n");
+			return err;
+		}
+		printf("IOCTL: IME_SIZE_BUFFER success\n");
+		args = (struct buffer_struct*) malloc (sizeof(struct buffer_struct)*size_buffer);
 		if ((err = ioctl(fd, IME_READ_BUFFER, args)) < 0){
 			printf("IOCTL: IME_READ_BUFFER failed\n");
 			return err;
 		}
 		printf("IOCTL: IME_READ_BUFFER success\n");
-
-		for(i = 0; i < args->last_index; i++){
-			printf("The global value of index%d is: %lu\n", i, args->buffer_sample[i].stat);
+		
+		FILE *f = fopen("file.txt", "w");
+		if (f == NULL)
+		{
+			printf("Error opening file!\n");
+			exit(1);
 		}
+
+		for(i = 0; i < size_buffer; i++){
+			fprintf(f, "0x%llx\t%d\n", args[i].address << 12, args[i].times);
+		}
+		fclose(f);
 		free(args);
 	}
 
@@ -329,11 +342,9 @@ int main(int argc, char **argv)
 			}
 			break;
 		case 'r':
-			printf("OPT: %s\n", optarg);
 			ptr = strtok(optarg, delim);
 			i = 0;
 			while(ptr != NULL && i < MAX_ID_PMC){
-				printf("STR: %s\n", ptr);
 				sscanf(ptr, "%lx", &sval);
 				current_config.reset_value[i] = sval;
 				ptr = strtok(NULL, delim);
