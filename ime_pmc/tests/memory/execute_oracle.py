@@ -77,81 +77,57 @@ MAGIC_CODE = '#INJECT'
 
 FREQUENCIES = ['0x0', '0x1', '0x4', '0x10', '0x100', '0x1000', '0x10000']
 #FREQUENCIES = ['0x10000']
-ISTR_CTN = [0 , 1, 2, 5, 10, 25, 50, 100]
+ISTR_CTN = [0, 1, 2, 5, 10, 25, 50, 100]
 #ISTR_CTN = [0]
 
 def main() :
-	try:
-		opts, args = getopt.getopt(sys.argv[1:], "c", ['clear']) # ["help", "output="])
-	except getopt.GetoptError as err :
-		print ("ERROR: " + str(err))
-		exit(1)
-	for o, a in opts:
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "c", ['clear']) # ["help", "output="])
+    except getopt.GetoptError as err :
+        print ("ERROR: " + str(err))
+        exit(1)
+        
+    for o, a in opts:
 		if o in ("-c", "--clear") :
 			clear_dir([DIR_RESULT + '/' + DIR_INFO, DIR_RESULT + '/' + DIR_DATA, DIR_RESULT + '/' + DIR_PLOTS])
 			return 0
-	
-	for ctn in ISTR_CTN :
-		clearInfo('ime'+ str(ctn))
-
-	for ctn in ISTR_CTN :
-		cmd(['cp', FILE_ORIG, FILE_COPY])
-		
-		
-		srcFile = open(FILE_COPY, 'r')
-		outFile = open(FILE_MAIN, 'w')
-
-		for line in srcFile :
-			if MAGIC_CODE in line :
-				if (ctn > 0) :
+    
+    clearInfo('oracle_info')
+    
+    for ctn in ISTR_CTN :
+        cmd(['cp', FILE_ORIG, FILE_COPY])
+        srcFile = open(FILE_COPY, 'r')
+        outFile = open(FILE_MAIN, 'w')
+        
+        for line in srcFile :
+            if MAGIC_CODE in line :
+                if (ctn > 0) :
 					outFile.write('asm volatile (\n')
 					for i in range(ctn) :
 						outFile.write('"xchgq %rax, %rbx\\n"\n')
 						outFile.write('"xchgq %rbx, %rax\\n"\n')
 					outFile.write(');\n')
-					
-			else :
-				outFile.write(line)
+            else :
+                outFile.write(line)
+        
+        srcFile.close()
+        outFile.close()
 
+        res = cmd('./hot_page 1 10', sh=True)
+        if (res[RET] != 0) :
+            print('something wrong')
+            return -1
+        # This returns 2 values: [0] ID, [1] Exec time (ms)
+        array = res[OUT][0].split()
+        time = array[5]
 
+        rawList = res[OUT][1:]
 
-		srcFile.close()
-		outFile.close()
-		
-		for freq in FREQUENCIES :
-			#'-p 1100 -c ffff -u ffff -s '+ freq+','+freq+' -r '+ freq+','+freq+' -e 04050606 -b ff00 -n'
-			cmd_line = freq+','+freq
-			res = cmd (['../../main/main', '-p', '1100', '-c', 'ffff', '-u', 'ffff', '-s', cmd_line, '-r', cmd_line, '-e', '04050606', '-b', 'ff00', '-n'])
-			if (res[RET] != 0) :
-				print('Cannot set frequency')
-			print("Set ")
-			print(res[OUT])
-			res = cmd('./hot_page 1 10', sh=True)
-			if (res[RET] != 0) :
-				print('something wrong')
-				return -1
-			# This returns 2 values: [0] ID, [1] Exec time (ms)
-			array = res[OUT][4].split()
-			time = array[5]
-			res = cmd(['../../main/main', '-o']) # legge le statistiche
-			if (res[RET] != 0) :
-				print('Cannot print stats')
+        # Sort and filter out metadata access memory samples
+        fineList = sorted(filter(lambda x: x.startswith('0x4'), rawList))
+        writeList('oracle' + str(ctn), fineList)
+        writeInfo('oracle_info', str(ctn) + '\t' + time)
 			
-			# The first 3 elements are information string, so filter them out
-			rawList = res[OUT][2:]
-
-			# Sort and filter out metadata access memory samples
-			fineList = sorted(filter(lambda x: x.startswith('0x4'), rawList))
-			writeList('ime' + freq + '_' +str(ctn), fineList) # ti interessa questo
-			writeInfo('ime' + str(ctn), freq + '\t' + time)
-			
-			cmd_line = '-p 1100 -f'
-
-			res = cmd (['../../main/main', '-p', '1100', '-f'])
-			if (res[RET] != 0) :
-				print('Cannot set frequency')
-			print("Reset ")
-			print(res[OUT])
 	# cmd(['gnuplot', '../plot.plt'])
 
 

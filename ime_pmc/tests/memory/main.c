@@ -233,17 +233,16 @@ int main(int argc, char **argv)
 	}
 	v[hot_pages] = -1;
 
+	long time = getMicrotime();
 
 	/* HOP check in */
 	#ifndef DUMP_ORACLE
 	struct hop_requester req;
-
-	long time = getMicrotime();
 	
-	if (request_pt(&req)) {
+	/*if (request_pt(&req)) {
 		printf("Cannot open the HOP CTL \n");
 		exit(1);
-	}
+	}*/
 	#endif
 	/* Resume code */	
 
@@ -255,14 +254,208 @@ int main(int argc, char **argv)
 		for(j = 0; j < v[i]; j++) {
 			for(k = 0; k < opcount; ++k) {
 
-				asm volatile (
-				"xchgq %rax, %rbx\n"
-				"xchgq %rbx, %rax\n"
-				"xchgq %rax, %rbx\n"
-				"xchgq %rbx, %rax\n"
-				"xchgq %rax, %rbx\n"
-				"xchgq %rbx, %rax\n"
-				);
+asm volatile (
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+"xchgq %rax, %rbx\n"
+"xchgq %rbx, %rax\n"
+);
 
 				mem_write(base + (i * PAGESIZE), PAGESIZE, opcount);
 			}
@@ -271,7 +464,7 @@ int main(int argc, char **argv)
 
 	/* HOP check out */
 	#ifndef DUMP_ORACLE
-	free_pt(&req);
+	//free_pt(&req);
 	printf("ID %u - Execution Time: %lu msec\n", getpid(), (getMicrotime() - time) / 1000);
 	#endif
 	/* Resume code */
@@ -279,7 +472,8 @@ int main(int argc, char **argv)
 	munmap(memory, buflen);
 
 	#ifdef DUMP_ORACLE
-	//dump_oracle();
+	printf("ID %u - Execution Time: %lu msec\n", getpid(), (getMicrotime() - time) / 1000);
+	dump_oracle();
 	dict_free(page_count, true);
 	#endif
 }

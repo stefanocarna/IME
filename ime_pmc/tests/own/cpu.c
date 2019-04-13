@@ -151,7 +151,7 @@ void *worker_func(void *ptr)
 	}
 	/* HOP check out */
 	if (active) free_pt(&req);
-	printf("ID %u - Execution Time: %lu msec\n", id, (getMicrotime() - time) / 1000);	
+	printf("%u %lu\n", id, (getMicrotime() - time) / 1000);	
 }// worker_func
 
 

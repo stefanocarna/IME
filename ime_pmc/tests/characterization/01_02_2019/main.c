@@ -271,7 +271,7 @@ int main(int argc, char **argv)
 	/* HOP check out */
 	#ifndef DUMP_ORACLE
 	free_pt(&req);
-	printf("ID %u - Execution Time: %lu msec\n", getpid(), (getMicrotime() - time) / 1000);
+	printf("%u %lu\n", getpid(), (getMicrotime() - time) / 1000);
 	#endif
 	/* Resume code */
 

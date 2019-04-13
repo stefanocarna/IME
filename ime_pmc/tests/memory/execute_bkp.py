@@ -62,40 +62,36 @@ def writeAgg(fileName, agg) :
 
 def writeInfo(fileName, info) :
 	
-	infoFile = open(DIR_RESULT + '/' + DIR_INFO + '/' + fileName + EXT, 'a+')
+	infoFile = open(DIR_RESULT + '/' + DIR_INFO + '/' + fileName + '.txt', 'w+')
 	infoFile.write(info + '\n')
 
 	infoFile.close()
-
-def clearInfo(fileName) :
-	open(DIR_RESULT + '/' + DIR_INFO + '/' + fileName + EXT, 'w').close()
 
 FILE_ORIG = 'main.c.origin'
 FILE_MAIN = 'main.c'
 FILE_COPY = 'main.c.bkp'
 MAGIC_CODE = '#INJECT'
 
-FREQUENCIES = ['0x0', '0x1', '0x4', '0x10', '0x100', '0x1000', '0x10000']
-#FREQUENCIES = ['0x10000']
-ISTR_CTN = [0 , 1, 2, 5, 10, 25, 50, 100]
-#ISTR_CTN = [0]
+FREQUENCIES = ['0x10000']#['0x0', '0x1', '0x4', '0x10', '0x100', '0x1000', '0x10000']
+
+ISTR_CTN = ['0']#, '1', '2', '5', '10', '25', '50', '100']
 
 def main() :
+
+
 	try:
 		opts, args = getopt.getopt(sys.argv[1:], "c", ['clear']) # ["help", "output="])
 	except getopt.GetoptError as err :
-		print ("ERROR: " + str(err))
+		print (str(err))
 		exit(1)
 	for o, a in opts:
 		if o in ("-c", "--clear") :
 			clear_dir([DIR_RESULT + '/' + DIR_INFO, DIR_RESULT + '/' + DIR_DATA, DIR_RESULT + '/' + DIR_PLOTS])
 			return 0
+
 	
 	for ctn in ISTR_CTN :
-		clearInfo('ime'+ str(ctn))
-
-	for ctn in ISTR_CTN :
-		cmd(['cp', FILE_ORIG, FILE_COPY])
+		print (cmd(['cp', FILE_ORIG, FILE_COPY]))
 		
 		
 		srcFile = open(FILE_COPY, 'r')
@@ -118,41 +114,72 @@ def main() :
 		srcFile.close()
 		outFile.close()
 		
-		for freq in FREQUENCIES :
-			#'-p 1100 -c ffff -u ffff -s '+ freq+','+freq+' -r '+ freq+','+freq+' -e 04050606 -b ff00 -n'
-			cmd_line = freq+','+freq
-			res = cmd (['../../main/main', '-p', '1100', '-c', 'ffff', '-u', 'ffff', '-s', cmd_line, '-r', cmd_line, '-e', '04050606', '-b', 'ff00', '-n'])
+
+
+
+		res = cmd(['../../main/profiler', '-n']) # accende
+		if (res[RET] != 0) :
+			print('Cannot activate profiler')
+
+		agg = ['#', 'Memory', 'Total']
+
+		os.chdir(DIR_RESULT)
+
+		check_dir([DIR_INFO, DIR_DATA, DIR_PLOTS])
+		
+		os.chdir('..')
+
+		for freq in FREQUENCIES :	
+			res = cmd(['../../main/profiler', '-s', freq]) # imposta la frequenza freq
 			if (res[RET] != 0) :
 				print('Cannot set frequency')
-			print("Set ")
-			print(res[OUT])
-			res = cmd('./hot_page 1 10', sh=True)
+
+
+			res = cmd('./hot_page 1 1', sh=True)
+
 			if (res[RET] != 0) :
 				print('something wrong')
 				return -1
+
 			# This returns 2 values: [0] ID, [1] Exec time (ms)
-			array = res[OUT][4].split()
-			time = array[5]
-			res = cmd(['../../main/main', '-o']) # legge le statistiche
+			pid, time = res[OUT][3].split()
+
+
+			res = cmd(['../../main/profiler', '-t', pid]) # registra il thread pid
 			if (res[RET] != 0) :
 				print('Cannot print stats')
-			
+
+			print(res[OUT]) # non ti serve tutto agg...
+			# Create the aggregate file
+			agg[0] += '\t' + freq
+			# The 4^ element is the # of memory samples
+			agg[1] += '\t' + res[OUT][3].split()[1]
+			# The 5^ element is the # of total samples
+			agg[2] += '\t' + res[OUT][4].split()[1]
+
+
+
+			res = cmd(['../../main/profiler', '-x', pid]) # legge le statistiche
+			if (res[RET] != 0) :
+				print('Cannot print stats')
+
 			# The first 3 elements are information string, so filter them out
-			rawList = res[OUT][2:]
+			rawList = res[OUT][3:]
 
 			# Sort and filter out metadata access memory samples
 			fineList = sorted(filter(lambda x: x.startswith('0x4'), rawList))
-			writeList('ime' + freq + '_' +str(ctn), fineList) # ti interessa questo
-			writeInfo('ime' + str(ctn), freq + '\t' + time)
-			
-			cmd_line = '-p 1100 -f'
+				
+			writeList('hop' + freq, fineList) # ti interessa questo
+			writeInfo('hop' + freq, time)
 
-			res = cmd (['../../main/main', '-p', '1100', '-f'])
-			if (res[RET] != 0) :
-				print('Cannot set frequency')
-			print("Reset ")
-			print(res[OUT])
+		writeAgg('agg', agg) # non ti serve
+
+		cmd(['touch', DIR_RESULT + '/' + DIR_INFO + '/' + ctn + '.inf']) # non ti serve
+		# os.chdir(DIR_RESULT + '/' + DIR_DATA)
+
 	# cmd(['gnuplot', '../plot.plt'])
+	# cmd(['gnuplot', '../agg.plt'])
+	# cmd(['mv', '*.png', '../' + DIR_PLOTS])
 
 
 if __name__ == "__main__":
