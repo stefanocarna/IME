@@ -239,10 +239,10 @@ int main(int argc, char **argv)
 	#ifndef DUMP_ORACLE
 	struct hop_requester req;
 	
-	/*if (request_pt(&req)) {
+	if (request_pt(&req)) {
 		printf("Cannot open the HOP CTL \n");
 		exit(1);
-	}*/
+	}
 	#endif
 	/* Resume code */	
 
@@ -263,7 +263,7 @@ int main(int argc, char **argv)
 
 	/* HOP check out */
 	#ifndef DUMP_ORACLE
-	//free_pt(&req);
+	free_pt(&req);
 	printf("ID %u - Execution Time: %lu msec\n", getpid(), (getMicrotime() - time) / 1000);
 	#endif
 	/* Resume code */

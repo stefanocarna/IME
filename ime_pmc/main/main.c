@@ -288,6 +288,8 @@ int main(int argc, char **argv)
 		current_config.start_value[i] = -1;
 		current_config.reset_value[i] = -1;
 	}
+	current_config.buffer_pebs_length = 0;
+	current_config.buffer_module_length = 0;
     while(!err && option != -1) {
         switch(option) {
         case 'p':

@@ -98,6 +98,7 @@ def main() :
             readFile = open(DIR_RESULT + '/' + DIR_DATA + '/' + 'ime' + freq + '_' +str(ctn) + EXT, 'r')
             for line in readFile:
                 s += int(line.split('\t')[1])
+            print(str(ctn) + ' ~~~ ' + freq + ' ~~~ ' + str(s))			
             s = float(s)/float(array[index])
             line = freq + '\t' + str(s)
             aggregates[index] = line

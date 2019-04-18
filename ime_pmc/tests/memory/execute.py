@@ -76,7 +76,7 @@ FILE_COPY = 'main.c.bkp'
 MAGIC_CODE = '#INJECT'
 
 FREQUENCIES = ['0x0', '0x1', '0x4', '0x10', '0x100', '0x1000', '0x10000']
-#FREQUENCIES = ['0x10000']
+#FREQUENCIES = ['0x1000']
 ISTR_CTN = [0 , 1, 2, 5, 10, 25, 50, 100]
 #ISTR_CTN = [0]
 
@@ -117,11 +117,14 @@ def main() :
 
 		srcFile.close()
 		outFile.close()
+
+		res = cmd('make')
 		
 		for freq in FREQUENCIES :
 			#'-p 1100 -c ffff -u ffff -s '+ freq+','+freq+' -r '+ freq+','+freq+' -e 04050606 -b ff00 -n'
 			cmd_line = freq+','+freq
-			res = cmd (['../../main/main', '-p', '1100', '-c', 'ffff', '-u', 'ffff', '-s', cmd_line, '-r', cmd_line, '-e', '04050606', '-b', 'ff00', '-n'])
+			page_size = 1024
+			res = cmd (['../../main/main', '-p', '1000', '-c', 'ffff', '-u', 'ffff', '-s', cmd_line, '-r', cmd_line, '-e', '05050606', '-b', 'ff00', '-m', '40', '-n'])
 			if (res[RET] != 0) :
 				print('Cannot set frequency')
 			print("Set ")
@@ -144,10 +147,8 @@ def main() :
 			fineList = sorted(filter(lambda x: x.startswith('0x4'), rawList))
 			writeList('ime' + freq + '_' +str(ctn), fineList) # ti interessa questo
 			writeInfo('ime' + str(ctn), freq + '\t' + time)
-			
-			cmd_line = '-p 1100 -f'
 
-			res = cmd (['../../main/main', '-p', '1100', '-f'])
+			res = cmd (['../../main/main', '-p', '1000', '-c', 'ffff', '-b', 'ffff', '-f'])
 			if (res[RET] != 0) :
 				print('Cannot set frequency')
 			print("Reset ")

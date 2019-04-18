@@ -113,6 +113,8 @@ def main() :
         srcFile.close()
         outFile.close()
 
+        res = cmd('make')		
+
         res = cmd('./hot_page 1 10', sh=True)
         if (res[RET] != 0) :
             print('something wrong')
@@ -121,11 +123,11 @@ def main() :
         array = res[OUT][0].split()
         time = array[5]
 
-        rawList = res[OUT][1:]
+        #rawList = res[OUT][1:]
 
         # Sort and filter out metadata access memory samples
-        fineList = sorted(filter(lambda x: x.startswith('0x4'), rawList))
-        writeList('oracle' + str(ctn), fineList)
+    	#fineList = sorted(filter(lambda x: x.startswith('0x4'), rawList))
+        #writeList('oracle' + str(ctn), fineList)
         writeInfo('oracle_info', str(ctn) + '\t' + time)
 			
 	# cmd(['gnuplot', '../plot.plt'])

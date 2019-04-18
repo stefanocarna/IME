@@ -21,6 +21,7 @@ typedef struct{
     unsigned long start;
 	unsigned long end;
 	int index;
+	int index_task;
 }bh_data_t;
 
 typedef struct{
@@ -73,3 +74,9 @@ typedef struct{
     int allocated;
     pebs_arg_t * buffer;
 }pebs_array_t;
+
+typedef struct{
+    int usage;
+    int allocated;
+    struct tasklet_struct* task;
+}task_array_t;

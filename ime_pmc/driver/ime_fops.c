@@ -187,7 +187,6 @@ long ime_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg){
 	if(cmd == IME_READ_BUFFER){
 		int k = 0, current_read, current_write;
 		unsigned long current_wcycle, current_rcycle;
-		pr_info("Size buffer: %llx\n", size_buffer_samples);
 		struct buffer_struct* args = (struct buffer_struct*) vmalloc (sizeof(struct buffer_struct)*size_buffer_samples);
         if (!args) return -ENOMEM;
 		err = access_ok(VERIFY_READ, (void *)arg, sizeof(struct buffer_struct)*size_buffer_samples);
